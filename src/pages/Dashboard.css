@@ -362,6 +362,13 @@
   resize: vertical;
 }
 
+.dashboard-section__hint {
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  color: #475467;
+  line-height: 1.5;
+}
+
 .dashboard-field--object {
   display: grid;
   gap: 1rem;

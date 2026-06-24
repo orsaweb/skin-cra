@@ -349,6 +349,10 @@ const normalizeContent = (content) => {
     }
   }
 
+  if (typeof clone.trackingScripts !== 'string') {
+    clone.trackingScripts = '';
+  }
+
   return clone;
 };
 
@@ -838,7 +842,10 @@ function Dashboard() {
     }
 
     const stringValue = value === null || value === undefined ? '' : String(value);
-    const shouldUseTextarea = stringValue.length > 160 || stringValue.includes('\n');
+    const isTrackingScriptsField = pathKey === 'trackingScripts';
+    const shouldUseTextarea = isTrackingScriptsField
+      || stringValue.length > 160
+      || stringValue.includes('\n');
 
     if (isImageField(label, path)) {
       const isProductImageField = path.includes('productImage');
@@ -893,9 +900,10 @@ function Dashboard() {
       return (
         <textarea
           id={fieldId}
-          rows={4}
+          rows={isTrackingScriptsField ? 10 : 4}
           value={stringValue}
           onChange={(event) => handleValueChange(path, event.target.value)}
+          placeholder={isTrackingScriptsField ? '<script>/* paste your tracking code */</script>' : undefined}
         />
       );
     }
@@ -910,34 +918,56 @@ function Dashboard() {
     );
   };
 
-  const renderSection = (sectionKey, sectionValue) => (
-    <details key={sectionKey} className="dashboard-section" open>
-      <summary>
-        <span>{sectionKey}</span>
-      </summary>
-      <div className="dashboard-section__content">
-        {sectionValue && typeof sectionValue === 'object' && !Array.isArray(sectionValue) ? (
-          Object.entries(sectionValue).map(([fieldKey, fieldValue]) =>
-            HIDDEN_FIELDS.has(pathToKey([sectionKey, fieldKey])) ? null : (
-              <div key={`${sectionKey}_${fieldKey}`} className="dashboard-section__field">
-                {typeof fieldValue === 'boolean' ? null : (
-                  <label htmlFor={`dashboard__${sectionKey}__${fieldKey}`}>{fieldKey}</label>
-                )}
-                {renderField(fieldValue, [sectionKey, fieldKey], fieldKey)}
-              </div>
-            ),
-          )
-        ) : (
-          <div className="dashboard-section__field">
-            {typeof sectionValue === 'boolean' ? null : (
-              <label htmlFor={`dashboard__${sectionKey}`}>{sectionKey}</label>
-            )}
-            {renderField(sectionValue, [sectionKey], sectionKey)}
+  const renderSection = (sectionKey, sectionValue) => {
+    if (sectionKey === 'trackingScripts') {
+      return (
+        <details key={sectionKey} className="dashboard-section" open>
+          <summary>
+            <span>Tracking Scripts</span>
+          </summary>
+          <div className="dashboard-section__content">
+            <div className="dashboard-section__field">
+              <label htmlFor="dashboard__trackingScripts">Embed code</label>
+              {renderField(sectionValue, [sectionKey], sectionKey)}
+              <p className="dashboard-section__hint">
+                Paste Google Analytics, Facebook Pixel, Taboola, or other tracking snippets. The code renders on
+                every public-facing page.
+              </p>
+            </div>
           </div>
-        )}
-      </div>
-    </details>
-  );
+        </details>
+      );
+    }
+
+    return (
+      <details key={sectionKey} className="dashboard-section" open>
+        <summary>
+          <span>{sectionKey}</span>
+        </summary>
+        <div className="dashboard-section__content">
+          {sectionValue && typeof sectionValue === 'object' && !Array.isArray(sectionValue) ? (
+            Object.entries(sectionValue).map(([fieldKey, fieldValue]) =>
+              HIDDEN_FIELDS.has(pathToKey([sectionKey, fieldKey])) ? null : (
+                <div key={`${sectionKey}_${fieldKey}`} className="dashboard-section__field">
+                  {typeof fieldValue === 'boolean' ? null : (
+                    <label htmlFor={`dashboard__${sectionKey}__${fieldKey}`}>{fieldKey}</label>
+                  )}
+                  {renderField(fieldValue, [sectionKey, fieldKey], fieldKey)}
+                </div>
+              ),
+            )
+          ) : (
+            <div className="dashboard-section__field">
+              {typeof sectionValue === 'boolean' ? null : (
+                <label htmlFor={`dashboard__${sectionKey}`}>{sectionKey}</label>
+              )}
+              {renderField(sectionValue, [sectionKey], sectionKey)}
+            </div>
+          )}
+        </div>
+      </details>
+    );
+  };
 
   const renderLogin = () => (
     <div className="dashboard__auth-card">
