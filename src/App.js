@@ -6,6 +6,7 @@ import OrderCompletedPage from './pages/OrderCompletedPage';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsOfService from './pages/TermsOfService';
 import Dashboard from './pages/Dashboard';
+import Blog5in1SerumPage from './pages/Blog5in1SerumPage';
 
 function App() {
   const path = window.location.pathname.replace(/\/+$/, '') || '/';
@@ -32,6 +33,10 @@ function App() {
 
   if (path === '/terms-of-service') {
     return <TermsOfService />;
+  }
+
+  if (path === '/blog/5in1serum') {
+    return <Blog5in1SerumPage />;
   }
 
   return <LandingPage />;
