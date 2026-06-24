@@ -18,6 +18,14 @@ const getCurrentLocationSignature = () => {
   return `${window.location.pathname}${window.location.search}${window.location.hash}`;
 };
 
+function LegacyBlogRedirect() {
+  useEffect(() => {
+    window.location.replace('/blog/skincaredaily');
+  }, []);
+
+  return null;
+}
+
 function App() {
   useEffect(() => {
     if (typeof window === 'undefined' || typeof window.history === 'undefined') {
@@ -81,6 +89,10 @@ function App() {
   }
 
   if (path === '/blog/5in1serum') {
+    return <LegacyBlogRedirect />;
+  }
+
+  if (path === '/blog/skincaredaily') {
     return <Blog5in1SerumPage />;
   }
 
