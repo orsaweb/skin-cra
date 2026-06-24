@@ -23,7 +23,7 @@
   },
   "hero": {
     "headline": "5in1 Facial Serum",
-    "subheadline": "For visibly firmer and radiant skin in just 2 weeks",
+    "subheadline": "For visibly firmer and radiant skin in just 1 week",
     "description": "5in1 facial serum is a non-invasive face lift that gives you a youthful glow and visibly reduces fine lines and wrinkles. It tightens & transforms dry, sun-damaged skin into a younger, more even complexion in just a few weeks.",
     "bullets": [
       "Enjoy a perfect skin tone",
@@ -312,12 +312,12 @@
       "label": "Start My Risk-Free Trial",
       "href": "#"
     },
-    "supportingCopy": "Your card is authorized for $60 today, but it is not charged unless the product is not returned within 7 days."
+    "supportingCopy": "You will only be charged after your 7-day trial ends. Return within 7 days to pay nothing."
   },
   "checkout": {
     "title": "Risk-Free 7 Day Trial",
     "checkoutPageTitle": "Start Your Risk-Free 7 Day Trial",
-    "subtitle": "$0 charged today. Your card is authorized for $60 and charged only if the product is not returned within 7 days.",
+    "subtitle": "$0 Risk-Free Trial Bottle. Your card is authorized for $60 and charged only if the product is not returned within 7 days.",
     "continueLabel": "Start 7-Day Risk-Free Trial",
     "stripe": {
       "mode": "live",
@@ -334,9 +334,9 @@
         "currency": "usd",
         "quantity": 1,
         "badge": "Risk-Free Trial",
-        "displayPrice": "$0 charged today",
+        "displayPrice": "$0 Risk-Free Trial Bottle",
         "subcopy": "$60 authorization only. No charge today.",
-        "summary": "Card not charged today. $60 is charged only if the product is not returned.",
+        "summary": "Charged only if the product is not returned within 7 days.",
         "metadata": {
           "sku": "serum-risk-free-trial"
         },
@@ -387,11 +387,11 @@
       },
       {
         "title": "6. Your Rights and Choices",
-        "paragraph": "You can update your personal information or unsubscribe from marketing emails at any time. You may also request access to, correction of, or deletion of your personal information by contacting us at support@domain.co."
+        "paragraph": "You can update your personal information or unsubscribe from marketing emails at any time. You may also request access to, correction of, or deletion of your personal information by contacting us at support@5in1facialserum.com."
       },
       {
         "title": "7. Contact Us",
-        "paragraph": "If you have any questions about this Privacy Policy, please contact us at support@domain.co or write to our customer service team at the address listed on your order confirmation."
+        "paragraph": "If you have any questions about this Privacy Policy, please contact us at support@5in1facialserum.com or write to our customer service team at the address listed on your order confirmation."
       }
     ]
   },
@@ -413,7 +413,7 @@
       },
       {
         "title": "4. Shipping and Returns",
-        "paragraph": "We collect shipping details at checkout so the trial bottle can be shipped. If you return the product within the 7 day trial period, contact support@domain.co so the authorization can be canceled before capture where eligible."
+        "paragraph": "We collect shipping details at checkout so the trial bottle can be shipped. If you return the product within the 7 day trial period, contact support@5in1facialserum.com so the authorization can be canceled before capture where eligible."
       },
       {
         "title": "5. Intellectual Property",
@@ -429,7 +429,7 @@
       },
       {
         "title": "8. Contact Us",
-        "paragraph": "For questions about these Terms, please contact support@domain.co or use the information provided in your order confirmation."
+        "paragraph": "For questions about these Terms, please contact support@5in1facialserum.com or use the information provided in your order confirmation."
       }
     ]
   },
