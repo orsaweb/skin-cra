@@ -624,11 +624,6 @@ function StripeCheckoutForm({ selectedOption, onBackToOptions, sessionId, apiBas
           {shippingError}
         </div>
       ) : null}
-      <div className="trial-disclosure" role="note">
-        <strong>Card not charged today.</strong>
-        {' '}
-        A $60 authorization hold is placed now. The $60 charge is captured only if the product is not returned within 7 days.
-      </div>
       <label
         className="stripe-input-label"
         htmlFor="payment-element"

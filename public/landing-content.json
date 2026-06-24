@@ -5,13 +5,13 @@
       "alt": ""
     },
     "favicon": {
-      "src": "/uploads/steps1-1761295663546-806688200.png",
+      "src": "https://5in1facialserum.com/assets/img/step1.avif",
       "alt": "Website favicon"
     },
     "saleBanners": [
       {
         "id": "sale",
-        "message": "RISK-FREE 7 DAY TRIAL: $0 charged today. $60 only if not returned within 7 days."
+        "message": "RISK-FREE 7 DAY TRIAL: $0 charged today."
       }
     ],
     "reviewBadge": {
@@ -140,7 +140,7 @@
       "label": "Try 5in1 Facial Serum",
       "href": "#"
     },
-    "ctaSupportCopy": "Try now with a 90 Day Money-Back Guarantee. All transactions are secured and encrypted."
+    "ctaSupportCopy": "Try now risk-free with a 90 Day Money-Back Guarantee. All transactions are secured and encrypted."
   },
   "results": {
     "title": "Verified customer results",
@@ -272,7 +272,7 @@
     "headline": "Younger looking skin or you pay nothing!",
     "body": "Every product is covered by our 90 Day Money Back Guarantee. Try it for 90 days and if you are not completely satisfied, for any reason, send it back and we will refund the full amount of your purchase.",
     "contact": {
-      "email": "support@example.com",
+      "email": "support@5in1facialserum.com",
       "phone": ""
     },
     "image": {
@@ -301,7 +301,7 @@
       },
       {
         "question": "What if I am not happy with the results?",
-        "answer": "Contact support@example.com within 90 days of purchase for a full refund. Your satisfaction is guaranteed."
+        "answer": "Contact support@5in1facialserum.com within 90 days of purchase for a full refund. Your satisfaction is guaranteed."
       }
     ]
   },
@@ -320,7 +320,7 @@
     "subtitle": "$0 charged today. Your card is authorized for $60 and charged only if the product is not returned within 7 days.",
     "continueLabel": "Start 7-Day Risk-Free Trial",
     "stripe": {
-      "mode": "test",
+      "mode": "live",
       "testPublishableKey": "pk_test_51SLJ7XAoRq5nqPnBxBfQzk29hRpN9pyF3aDkErxqQHidm6ExPG2AVxQGB7WvWvQZRi3WTQBOvBmQembAxEhqsZYp00EReLMvfW",
       "livePublishableKey": "pk_live_51SMCEWQ3Zf0b9tkXPboBLMIDAB8EycidoG4FzntWsMmIMSObkoEBIu4gHgUSFV0QXPRpOhKxLS8EFj58sYMDoyZP003VB272la"
     },
@@ -336,7 +336,7 @@
         "badge": "Risk-Free Trial",
         "displayPrice": "$0 charged today",
         "subcopy": "$60 authorization only. No charge today.",
-        "summary": "Card not charged today. $60 is captured only if the product is not returned within 7 days.",
+        "summary": "Card not charged today. $60 is charged only if the product is not returned.",
         "metadata": {
           "sku": "serum-risk-free-trial"
         },
@@ -354,7 +354,7 @@
         "label": "Continue browsing",
         "href": "/"
       },
-      "supportingCopy": "Need anything else? Our support team is here for you at support@example.com.",
+      "supportingCopy": "Need anything else? Our support team is here for you at support@5in1facialserum.com.",
       "image": {
         "src": "/uploads/right-1761293344342-944637795.png",
         "alt": "Happy customer holding skincare products"
