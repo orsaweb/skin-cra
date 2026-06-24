@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import PropTypes from 'prop-types';
 import ResponsiveImage from './landing/ResponsiveImage';
+import { trackFacebookPurchase } from '../lib/facebookPixel';
 import './StripeCheckout.css';
 
 const STATUS = {
@@ -96,6 +97,38 @@ const clearSessionIdFromUrl = () => {
   }
 };
 
+const PURCHASE_VALUE = 60;
+const PURCHASE_CURRENCY = 'USD';
+
+const getPurchaseTrackingKey = ({ sessionId, paymentIntentId }) => {
+  const reference = paymentIntentId || sessionId || 'unknown';
+  return `meta-purchase:${reference}`;
+};
+
+const hasTrackedPurchase = (key) => {
+  if (typeof window === 'undefined' || !window.sessionStorage) {
+    return false;
+  }
+
+  try {
+    return window.sessionStorage.getItem(key) === '1';
+  } catch (_error) {
+    return false;
+  }
+};
+
+const markPurchaseTracked = (key) => {
+  if (typeof window === 'undefined' || !window.sessionStorage) {
+    return;
+  }
+
+  try {
+    window.sessionStorage.setItem(key, '1');
+  } catch (_error) {
+    // Ignore storage failures so checkout confirmation remains unaffected.
+  }
+};
+
 function StripeCheckoutReturn({ sessionId, apiBase, thankYou, onRequestClose }) {
   const [status, setStatus] = useState(STATUS.loading);
   const [error, setError] = useState('');
@@ -105,6 +138,7 @@ function StripeCheckoutReturn({ sessionId, apiBase, thankYou, onRequestClose }) 
     paymentIntentId: '',
     paymentIntentStatus: '',
   });
+  const purchaseEventTrackedRef = useRef(false);
   const thankYouContent = useMemo(() => sanitizeThankYouContent(thankYou), [thankYou]);
 
   const requestUrl = useMemo(() => {
@@ -162,6 +196,36 @@ function StripeCheckoutReturn({ sessionId, apiBase, thankYou, onRequestClose }) 
       clearSessionIdFromUrl();
     }
   }, [status]);
+
+  useEffect(() => {
+    if (status !== STATUS.success || purchaseEventTrackedRef.current) {
+      return;
+    }
+
+    const trackingKey = getPurchaseTrackingKey({
+      sessionId,
+      paymentIntentId: sessionDetails.paymentIntentId,
+    });
+
+    if (hasTrackedPurchase(trackingKey)) {
+      purchaseEventTrackedRef.current = true;
+      return;
+    }
+
+    const tracked = trackFacebookPurchase({
+      value: PURCHASE_VALUE,
+      currency: PURCHASE_CURRENCY,
+      content_name: '5in1 Facial Serum 7-Day Risk-Free Trial',
+      content_ids: ['risk-free-trial'],
+      content_type: 'product',
+      transaction_id: sessionId || sessionDetails.paymentIntentId || undefined,
+    });
+
+    if (tracked) {
+      purchaseEventTrackedRef.current = true;
+      markPurchaseTracked(trackingKey);
+    }
+  }, [sessionDetails.paymentIntentId, sessionId, status]);
 
   const { headline, subheadline, description, supportingCopy, cta, image } = thankYouContent;
 
