@@ -1,5 +1,5 @@
 import PropTypes from 'prop-types';
-import { resolveAssetPath, isExternalUrl, getImageLoadingProps } from './utils';
+import { isExternalUrl, getImageLoadingProps } from './utils';
 import ResponsiveImage from './ResponsiveImage';
 
 function HeroSection({ hero, onPrimaryCtaClick, onSecondaryCtaClick }) {

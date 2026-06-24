@@ -7,7 +7,7 @@ function FooterSection({ footer }) {
     return null;
   }
 
-  const { blurb, logo, helpLinks = [], orderLinks = [], paymentImage, copyright } = footer;
+  const { helpLinks = [], orderLinks = [], paymentImage, copyright } = footer;
 
   return (
     <footer className="landing-footer" data-landing-part="footer">

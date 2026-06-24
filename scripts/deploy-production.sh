@@ -34,6 +34,9 @@ copy_initial_file "server/stripe-secrets.json" "$DATA_DIR/stripe-secrets.json" '
   "testSecretKey": "",
   "liveSecretKey": ""
 }'
+copy_initial_file "server/trial-orders.json" "$DATA_DIR/trial-orders.json" '{
+  "orders": []
+}'
 
 chmod 600 "$DATA_DIR/stripe-secrets.json" || true
 
@@ -50,6 +53,9 @@ ln -s "$DATA_DIR/landing-content.json" public/landing-content.json
 
 rm -f server/stripe-secrets.json
 ln -s "$DATA_DIR/stripe-secrets.json" server/stripe-secrets.json
+
+rm -f server/trial-orders.json
+ln -s "$DATA_DIR/trial-orders.json" server/trial-orders.json
 
 npm ci
 npm run build

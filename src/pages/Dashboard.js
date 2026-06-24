@@ -7,6 +7,7 @@ const AUTH_HEADER_PREFIX = 'Basic ';
 const CONTENT_ENDPOINT = process.env.REACT_APP_CONTENT_ENDPOINT || '/api/content';
 const LOGIN_ENDPOINT = '/api/login';
 const UPLOAD_ENDPOINT = process.env.REACT_APP_UPLOAD_ENDPOINT || '/api/upload-image';
+const TRIAL_ORDERS_ENDPOINT = '/api/trial-orders';
 
 const ARRAY_TEMPLATES = {
   'branding.saleBanners': {
@@ -166,6 +167,53 @@ const isImageField = (label, path) => {
 };
 
 const pathToKey = (path) => path.filter((segment) => segment !== undefined && segment !== null).join('.');
+
+const formatCents = (amount, currency = 'usd') => {
+  const numericAmount = Number(amount);
+
+  if (!Number.isFinite(numericAmount)) {
+    return '';
+  }
+
+  try {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: String(currency || 'usd').toUpperCase(),
+    }).format(numericAmount / 100);
+  } catch (_error) {
+    return `$${(numericAmount / 100).toFixed(2)}`;
+  }
+};
+
+const formatDateTime = (value) => {
+  if (!value) {
+    return '-';
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return '-';
+  }
+
+  return date.toLocaleString();
+};
+
+const formatShippingAddress = (shippingDetails) => {
+  const address = shippingDetails?.address;
+
+  if (!address) {
+    return 'No shipping details yet';
+  }
+
+  return [
+    shippingDetails.name,
+    address.line1,
+    address.line2,
+    [address.city, address.state, address.postal_code].filter(Boolean).join(', '),
+    address.country,
+  ].filter(Boolean).join(' | ');
+};
 
 const createArrayItemTemplate = (path, currentValue) => {
   if (Array.isArray(currentValue) && currentValue.length) {
@@ -373,6 +421,10 @@ function Dashboard() {
   const [originalStripeSecrets, setOriginalStripeSecrets] = useState(null);
   const [stripeSecretsStatus, setStripeSecretsStatus] = useState({ state: 'idle', message: '' });
   const [isLoadingStripeSecrets, setIsLoadingStripeSecrets] = useState(false);
+  const [trialOrders, setTrialOrders] = useState([]);
+  const [trialOrdersStatus, setTrialOrdersStatus] = useState({ state: 'idle', message: '' });
+  const [isLoadingTrialOrders, setIsLoadingTrialOrders] = useState(false);
+  const [returningOrderId, setReturningOrderId] = useState('');
 
   const isAuthenticated = Boolean(authToken);
 
@@ -456,6 +508,10 @@ function Dashboard() {
     setOriginalStripeSecrets(null);
     setStripeSecretsStatus({ state: 'idle', message: '' });
     setIsLoadingStripeSecrets(false);
+    setTrialOrders([]);
+    setTrialOrdersStatus({ state: 'idle', message: '' });
+    setIsLoadingTrialOrders(false);
+    setReturningOrderId('');
   }, []);
 
   const applyContent = useCallback(
@@ -545,12 +601,45 @@ function Dashboard() {
     }
   }, [authHeader, handleLogout]);
 
+  const loadTrialOrders = useCallback(async () => {
+    if (!authHeader) {
+      return;
+    }
+
+    setIsLoadingTrialOrders(true);
+    setTrialOrdersStatus({ state: 'idle', message: '' });
+
+    try {
+      const response = await fetch(TRIAL_ORDERS_ENDPOINT, {
+        headers: { Authorization: authHeader },
+        cache: 'no-cache',
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          handleLogout();
+        }
+
+        throw new Error(`Unable to load trial orders (${response.status})`);
+      }
+
+      const payload = await response.json().catch(() => ({}));
+      setTrialOrders(Array.isArray(payload.orders) ? payload.orders : []);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to load trial orders.';
+      setTrialOrdersStatus({ state: 'error', message });
+    } finally {
+      setIsLoadingTrialOrders(false);
+    }
+  }, [authHeader, handleLogout]);
+
   useEffect(() => {
     if (isAuthenticated) {
       loadContent();
       loadStripeSecrets();
+      loadTrialOrders();
     }
-  }, [isAuthenticated, loadContent, loadStripeSecrets]);
+  }, [isAuthenticated, loadContent, loadStripeSecrets, loadTrialOrders]);
 
   useEffect(() => {
     updateFavicon(dashboardFaviconSrc);
@@ -649,6 +738,38 @@ function Dashboard() {
       setStripeSecretsStatus({ state: 'error', message });
     }
   }, [authHeader, isAuthenticated, stripeSecrets]);
+
+  const handleMarkReturned = useCallback(async (orderId) => {
+    if (!orderId || returningOrderId) {
+      return;
+    }
+
+    setReturningOrderId(orderId);
+    setTrialOrdersStatus({ state: 'saving', message: 'Canceling authorization...' });
+
+    try {
+      const response = await fetch(`${TRIAL_ORDERS_ENDPOINT}/${encodeURIComponent(orderId)}/return`, {
+        method: 'POST',
+        headers: {
+          Authorization: authHeader,
+        },
+      });
+
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(payload.error || `Unable to cancel authorization (${response.status})`);
+      }
+
+      setTrialOrdersStatus({ state: 'success', message: 'Order marked returned and authorization canceled.' });
+      await loadTrialOrders();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to cancel authorization.';
+      setTrialOrdersStatus({ state: 'error', message });
+    } finally {
+      setReturningOrderId('');
+    }
+  }, [authHeader, loadTrialOrders, returningOrderId]);
 
   const handleRemoveItem = useCallback(
     (path) => {
@@ -969,6 +1090,86 @@ function Dashboard() {
     );
   };
 
+  const renderTrialOrders = () => (
+    <section className="dashboard__trial-orders">
+      <div className="dashboard__trial-header">
+        <div>
+          <h2>Trial Orders</h2>
+          <p>Review authorized trials and cancel the $60 capture when a product is returned within 7 days.</p>
+        </div>
+        <button type="button" onClick={loadTrialOrders} disabled={isLoadingTrialOrders}>
+          {isLoadingTrialOrders ? 'Refreshing...' : 'Refresh orders'}
+        </button>
+      </div>
+
+      {trialOrdersStatus.message ? (
+        <p
+          className={`dashboard__trial-status dashboard__trial-status--${trialOrdersStatus.state}`}
+          role={trialOrdersStatus.state === 'error' ? 'alert' : 'status'}
+        >
+          {trialOrdersStatus.message}
+        </p>
+      ) : null}
+
+      {trialOrders.length ? (
+        <div className="dashboard__trial-table-wrap">
+          <table className="dashboard__trial-table">
+            <thead>
+              <tr>
+                <th>Status</th>
+                <th>Customer</th>
+                <th>Amount</th>
+                <th>Capture At</th>
+                <th>Shipping</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {trialOrders.map((order) => {
+                const orderId = order.id || order.paymentIntentId || order.sessionId;
+                const isFinal = order.status === 'captured' || order.status === 'returned';
+                const isReturning = returningOrderId === orderId;
+
+                return (
+                  <tr key={orderId}>
+                    <td>
+                      <span className={`dashboard__trial-pill dashboard__trial-pill--${order.status || 'unknown'}`}>
+                        {order.status || 'unknown'}
+                      </span>
+                      {order.lastError ? <span className="dashboard__trial-error">{order.lastError}</span> : null}
+                    </td>
+                    <td>
+                      <strong>{order.customerName || 'Customer'}</strong>
+                      <span>{order.customerEmail || 'No email'}</span>
+                      {order.customerPhone ? <span>{order.customerPhone}</span> : null}
+                    </td>
+                    <td>{formatCents(order.amount, order.currency)}</td>
+                    <td>{formatDateTime(order.captureAt)}</td>
+                    <td>{formatShippingAddress(order.shippingDetails)}</td>
+                    <td>
+                      <button
+                        type="button"
+                        className="dashboard__trial-return"
+                        onClick={() => handleMarkReturned(orderId)}
+                        disabled={isFinal || isReturning || !order.paymentIntentId}
+                      >
+                        {isReturning ? 'Canceling...' : 'Mark Returned'}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p className="dashboard__trial-empty">
+          {isLoadingTrialOrders ? 'Loading trial orders...' : 'No trial orders yet.'}
+        </p>
+      )}
+    </section>
+  );
+
   const renderLogin = () => (
     <div className="dashboard__auth-card">
       <h1>Admin Login</h1>
@@ -1152,6 +1353,8 @@ function Dashboard() {
             </p>
           </div>
         </section>
+
+        {renderTrialOrders()}
 
         <section className="dashboard__sections">
           {draftContent && typeof draftContent === 'object'

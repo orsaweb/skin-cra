@@ -190,7 +190,7 @@ function StripeCheckoutReturn({ sessionId, apiBase, thankYou, onRequestClose }) 
   }, [onRequestClose]);
 
   if (status === STATUS.loading) {
-    return <div className="stripe-status-message" role="status">Finalizing your payment…</div>;
+    return <div className="stripe-status-message" role="status">Finalizing your trial...</div>;
   }
 
   if (status !== STATUS.success) {
@@ -277,7 +277,7 @@ function StripeCheckoutReturn({ sessionId, apiBase, thankYou, onRequestClose }) 
       <div className="checkout-thankyou__content">
         <div className="checkout-thankyou__status">
           <span className="checkout-thankyou__status-icon">{SUCCESS_ICON}</span>
-          <span className="checkout-thankyou__status-label">Payment confirmed</span>
+          <span className="checkout-thankyou__status-label">Trial authorized</span>
         </div>
         <h2 className="checkout-thankyou__headline">{headline}</h2>
         {subheadline ? <p className="checkout-thankyou__subheadline">{subheadline}</p> : null}

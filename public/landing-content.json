@@ -292,8 +292,8 @@
         "answer": "Yes. Dermatological tests show the serum can be used on sensitive skin."
       },
       {
-        "question": "How much longer will the sale be on for?",
-        "answer": "The sale ends once we run out of stock. After that it will take 30 days to restock and prices return to full price."
+        "question": "Will my card be charged today?",
+        "answer": "No. Your card is authorized for $60 today, but the charge is only captured if the product is not returned within 7 days."
       },
       {
         "question": "Where does this fall in my skincare routine?",
@@ -306,82 +306,50 @@
     ]
   },
   "finalCta": {
-    "headline": "Last chance to grab this limited special offer",
-    "subheadline": "Instant online discount today!",
+    "headline": "Start Your Risk-Free 7 Day Trial",
+    "subheadline": "Get your bottle today with $0 charged upfront.",
     "cta": {
-      "label": "Get A 30% Discount Now",
+      "label": "Start My Risk-Free Trial",
       "href": "#"
     },
-    "supportingCopy": "Available online only | While supplies last. Free Shipping | 90 Day Money-Back Guarantee."
+    "supportingCopy": "Your card is authorized for $60 today, but it is not charged unless the product is not returned within 7 days."
   },
   "checkout": {
-    "title": "Choose the bundle that fits your routine",
-    "checkoutPageTitle": "",
-    "subtitle": "Select the package that gives you the results you want fastest.",
-    "continueLabel": "Continue to secure checkout",
+    "title": "Risk-Free 7 Day Trial",
+    "checkoutPageTitle": "Start Your Risk-Free 7 Day Trial",
+    "subtitle": "$0 charged today. Your card is authorized for $60 and charged only if the product is not returned within 7 days.",
+    "continueLabel": "Start 7-Day Risk-Free Trial",
     "stripe": {
       "mode": "test",
-      "testPublishableKey": "pk_test_51SLJ7hAAxHCpkm1F3fzJ5huamxhYHcZ7hOzhbVe9Q78wK9kDrHkLn3imN6fdm9xQyGWOPzXXGEMUFk2uRscwc2Cw00QMwsWvLX",
+      "testPublishableKey": "pk_test_51SLJ7XAoRq5nqPnBxBfQzk29hRpN9pyF3aDkErxqQHidm6ExPG2AVxQGB7WvWvQZRi3WTQBOvBmQembAxEhqsZYp00EReLMvfW",
       "livePublishableKey": "pk_live_51SMCEWQ3Zf0b9tkXPboBLMIDAB8EycidoG4FzntWsMmIMSObkoEBIu4gHgUSFV0QXPRpOhKxLS8EFj58sYMDoyZP003VB272la"
     },
     "options": [
       {
-        "id": "single-bottle",
-        "name": "Single Bottle",
-        "description": "30-day supply | Perfect for first-time results",
-        "price": 1,
+        "id": "risk-free-trial",
+        "name": "5in1 Facial Serum",
+        "description": "Risk-Free 7 Day Trial | One bottle shipped to you today",
+        "checkoutDescription": "$0 upfront. Your card is authorized for $60 today and charged only if the product is not returned within 7 days.",
+        "price": 60,
         "currency": "usd",
         "quantity": 1,
-        "badge": "Starter",
-        "subcopy": "One-time purchase. Free shipping included.",
+        "badge": "Risk-Free Trial",
+        "displayPrice": "$0 charged today",
+        "subcopy": "$60 authorization only. No charge today.",
+        "summary": "Card not charged today. $60 is captured only if the product is not returned within 7 days.",
         "metadata": {
-          "sku": "serum-single"
+          "sku": "serum-risk-free-trial"
         },
         "image": {
           "src": "/uploads/bottle-1761291134722-85595885.png",
           "alt": ""
         }
-      },
-      {
-        "id": "double-bundle",
-        "name": "2 Bottle Bundle",
-        "description": "60-day supply | Keep your glow going",
-        "price": 1,
-        "currency": "usd",
-        "quantity": 1,
-        "badge": "Most Popular",
-        "bestValue": true,
-        "subcopy": "Save 20% compared to a single bottle.",
-        "metadata": {
-          "sku": "serum-double"
-        },
-        "image": {
-          "src": "/uploads/bottle-1761291124287-700393175.png",
-          "alt": ""
-        }
-      },
-      {
-        "id": "triple-bundle",
-        "name": "3 Bottle Bundle",
-        "description": "90-day supply | Transform your routine",
-        "price": 3,
-        "currency": "usd",
-        "quantity": 1,
-        "badge": "Best Value",
-        "subcopy": "Save 30% and lock in your progress.",
-        "metadata": {
-          "sku": "serum-triple"
-        },
-        "image": {
-          "src": "/uploads/bottle-1761291130001-960102247.png",
-          "alt": ""
-        }
       }
     ],
     "thankYou": {
-      "headline": "Thank you for your purchase!",
-      "subheadline": "Your 5in1 Facial Serum order is confirmed.",
-      "description": "We just sent a confirmation email with your receipt and shipping details. Expect tracking information within the next 24 hours.",
+      "headline": "Your trial is confirmed!",
+      "subheadline": "Your card has been authorized, not charged.",
+      "description": "We just received your shipping details. Your $60 authorization will only be captured if the product is not returned within 7 days.",
       "cta": {
         "label": "Continue browsing",
         "href": "/"
@@ -441,11 +409,11 @@
       },
       {
         "title": "3. Billing and Payment",
-        "paragraph": "You authorize us and our third-party payment processors to charge the payment method you provide for all orders placed. You are responsible for any additional taxes, fees, or charges applicable to your purchase."
+        "paragraph": "For the Risk-Free 7 Day Trial, you authorize us and our third-party payment processor to place a $60 authorization hold on your payment method at checkout. Your card is not charged today. If the product is not returned within 7 days, you authorize us to capture the $60 payment before the authorization expires. You are responsible for any additional taxes, fees, or charges applicable to your purchase."
       },
       {
         "title": "4. Shipping and Returns",
-        "paragraph": "We process orders within standard timelines and provide tracking information where available. If you are not satisfied with your purchase, please refer to our return policy or contact support@domain.co within the guarantee period."
+        "paragraph": "We collect shipping details at checkout so the trial bottle can be shipped. If you return the product within the 7 day trial period, contact support@domain.co so the authorization can be canceled before capture where eligible."
       },
       {
         "title": "5. Intellectual Property",

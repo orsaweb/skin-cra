@@ -97,6 +97,21 @@ cubic-bezier(0.19, 1, 0.22, 1);
   color: #007a3d;
 }
 
+.trial-disclosure {
+  padding: 14px 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 122, 61, 0.2);
+  background: #f0fdf4;
+  color: #14532d;
+  font-family: "Lato", sans-serif;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.trial-disclosure strong {
+  color: #0f3d22;
+}
+
 .btn {
   display: inline-flex;
   align-items: center;

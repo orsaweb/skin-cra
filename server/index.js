@@ -19,6 +19,31 @@ const adminPassword = process.env.ADMIN_PASSWORD || 'change-this-password';
 const contentFilePath = path.resolve(__dirname, '../public/landing-content.json');
 const uploadsDir = path.resolve(__dirname, '../public/uploads');
 const stripeSecretsFilePath = path.resolve(__dirname, 'stripe-secrets.json');
+const trialOrdersFilePath = path.resolve(__dirname, 'trial-orders.json');
+const apiPrefix = process.env.API_ROUTE_PREFIX || '/api';
+const normalizedApiPrefix = apiPrefix.replace(/\/$/, '');
+const trialProduct = {
+  id: 'risk-free-trial',
+  name: '5in1 Facial Serum 7-Day Risk-Free Trial',
+  amount: 6000,
+  currency: 'usd',
+  quantity: 1,
+  captureDelayDays: 7,
+};
+const trialCaptureSchedulerMs = Number(process.env.TRIAL_CAPTURE_SCHEDULER_MS || 5 * 60 * 1000);
+let isCaptureSchedulerRunning = false;
+
+const prefixRoute = (pattern) => {
+  if (!pattern.startsWith('/')) {
+    throw new Error(`Route pattern must start with '/': ${pattern}`);
+  }
+
+  if (!normalizedApiPrefix) {
+    return pattern;
+  }
+
+  return `${normalizedApiPrefix}${pattern}`;
+};
 
 const ensureUploadsDir = async () => {
   try {
@@ -55,6 +80,12 @@ const upload = multer({
 });
 const stripeClients = new Map();
 
+const getTrialMetadata = () => ({
+  trial: 'true',
+  productId: trialProduct.id,
+  captureDelayDays: String(trialProduct.captureDelayDays),
+});
+
 const buildReturnUrl = (req) => {
   const configuredBase = process.env.CHECKOUT_RETURN_URL_BASE || process.env.CHECKOUT_RETURN_URL;
   const originHeader = req.get('origin');
@@ -64,31 +95,47 @@ const buildReturnUrl = (req) => {
   return `${baseUrl}/order-completed?session_id={CHECKOUT_SESSION_ID}`;
 };
 
-const buildLineItems = (payload, defaults) => {
-  if (payload.priceId) {
-    return [
-      {
-        price: String(payload.priceId),
-        quantity: defaults.quantity,
-      },
-    ];
+app.use(cors({ origin: allowedOrigins, credentials: true }));
+
+app.post(prefixRoute('/stripe-webhook'), express.raw({ type: 'application/json' }), async (req, res) => {
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+  if (!webhookSecret) {
+    return res.status(500).json({ error: 'STRIPE_WEBHOOK_SECRET is not configured.' });
   }
 
-  return [
-    {
-      price_data: {
-        currency: defaults.currency,
-        product_data: {
-          name: payload.description || defaults.description,
-        },
-        unit_amount: defaults.amount,
-      },
-      quantity: defaults.quantity,
-    },
-  ];
-};
+  let stripeClient;
 
-app.use(cors({ origin: allowedOrigins, credentials: true }));
+  try {
+    ({ stripe: stripeClient } = await getStripeClient());
+  } catch (error) {
+    console.error('Failed to resolve Stripe client for webhook:', error);
+    return res.status(500).json({ error: 'Unable to connect to Stripe.' });
+  }
+
+  if (!stripeClient) {
+    return res.status(500).json({ error: 'Stripe secret key is not configured.' });
+  }
+
+  const signature = req.get('stripe-signature');
+  let event;
+
+  try {
+    event = stripeClient.webhooks.constructEvent(req.body, signature, webhookSecret);
+  } catch (error) {
+    console.error('Stripe webhook signature verification failed:', error);
+    return res.status(400).json({ error: 'Invalid Stripe webhook signature.' });
+  }
+
+  try {
+    await handleStripeWebhookEvent(stripeClient, event);
+    res.json({ received: true });
+  } catch (error) {
+    console.error('Stripe webhook handling failed:', error);
+    res.status(500).json({ error: 'Unable to process Stripe webhook.' });
+  }
+});
+
 app.use(express.json({ limit: process.env.BODY_PARSER_LIMIT || '8mb' }));
 
 app.get('/health', (_req, res) => {
@@ -195,6 +242,231 @@ const writeStripeSecrets = async (secrets) => {
   await fsPromises.writeFile(stripeSecretsFilePath, payload, 'utf8');
 };
 
+const readTrialOrders = async () => {
+  try {
+    const buffer = await fsPromises.readFile(trialOrdersFilePath);
+    const parsed = JSON.parse(stripBom(buffer.toString('utf8')));
+    const orders = Array.isArray(parsed)
+      ? parsed
+      : Array.isArray(parsed.orders)
+        ? parsed.orders
+        : [];
+
+    return { orders };
+  } catch (error) {
+    if (error && error.code === 'ENOENT') {
+      return { orders: [] };
+    }
+
+    console.error('Failed to read trial orders file:', error);
+    throw new Error('Unable to load trial orders.');
+  }
+};
+
+const writeTrialOrders = async (store) => {
+  const payload = `${JSON.stringify({ orders: store.orders || [] }, null, 2)}\n`;
+  await fsPromises.writeFile(trialOrdersFilePath, payload, 'utf8');
+};
+
+const updateTrialOrders = async (updater) => {
+  const store = await readTrialOrders();
+  const nextStore = await updater(store);
+  await writeTrialOrders(nextStore || store);
+  return nextStore || store;
+};
+
+const getPaymentIntentId = (paymentIntent) => (
+  paymentIntent && typeof paymentIntent === 'object' ? paymentIntent.id : paymentIntent
+);
+
+const addDays = (date, days) => new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
+
+const getSessionCreatedAt = (session) => {
+  if (typeof session.created === 'number') {
+    return new Date(session.created * 1000);
+  }
+
+  return new Date();
+};
+
+const getTrialOrderStatusFromPaymentIntent = (paymentIntent) => {
+  if (!paymentIntent || typeof paymentIntent !== 'object') {
+    return 'authorized';
+  }
+
+  if (paymentIntent.status === 'succeeded') {
+    return 'captured';
+  }
+
+  if (paymentIntent.status === 'canceled') {
+    return 'canceled';
+  }
+
+  return 'authorized';
+};
+
+const sanitizeStripeAddress = (address) => {
+  if (!address || typeof address !== 'object') {
+    return null;
+  }
+
+  return {
+    line1: address.line1 || '',
+    line2: address.line2 || '',
+    city: address.city || '',
+    state: address.state || '',
+    postal_code: address.postal_code || '',
+    country: address.country || '',
+  };
+};
+
+const buildTrialOrderFromSession = (session) => {
+  const paymentIntent = session.payment_intent && typeof session.payment_intent === 'object'
+    ? session.payment_intent
+    : null;
+  const paymentIntentId = getPaymentIntentId(session.payment_intent);
+  const customerDetails = session.customer_details && typeof session.customer_details === 'object'
+    ? session.customer_details
+    : {};
+  const shippingDetails = session.shipping_details && typeof session.shipping_details === 'object'
+    ? session.shipping_details
+    : null;
+  const createdAt = getSessionCreatedAt(session);
+  const status = getTrialOrderStatusFromPaymentIntent(paymentIntent);
+
+  return {
+    id: paymentIntentId || session.id,
+    sessionId: session.id,
+    paymentIntentId: paymentIntentId || '',
+    amount: paymentIntent && Number.isInteger(paymentIntent.amount)
+      ? paymentIntent.amount
+      : trialProduct.amount,
+    currency: paymentIntent?.currency || session.currency || trialProduct.currency,
+    status,
+    customerEmail: customerDetails.email || session.customer_email || '',
+    customerName: shippingDetails?.name || customerDetails.name || '',
+    customerPhone: customerDetails.phone || '',
+    shippingDetails: shippingDetails
+      ? {
+          name: shippingDetails.name || '',
+          phone: shippingDetails.phone || '',
+          address: sanitizeStripeAddress(shippingDetails.address),
+        }
+      : null,
+    createdAt: createdAt.toISOString(),
+    captureAt: addDays(createdAt, trialProduct.captureDelayDays).toISOString(),
+    capturedAt: status === 'captured' ? new Date().toISOString() : '',
+    returnedAt: '',
+    canceledAt: status === 'canceled' ? new Date().toISOString() : '',
+    livemode: Boolean(session.livemode),
+    lastError: '',
+  };
+};
+
+const isTrialSession = (session) => {
+  const sessionMetadata = session && session.metadata && typeof session.metadata === 'object'
+    ? session.metadata
+    : {};
+  const paymentIntent = session && session.payment_intent && typeof session.payment_intent === 'object'
+    ? session.payment_intent
+    : null;
+  const paymentMetadata = paymentIntent && paymentIntent.metadata && typeof paymentIntent.metadata === 'object'
+    ? paymentIntent.metadata
+    : {};
+
+  return sessionMetadata.trial === 'true' || paymentMetadata.trial === 'true';
+};
+
+const upsertTrialOrder = async (order) => {
+  await updateTrialOrders((store) => {
+    const orders = Array.isArray(store.orders) ? [...store.orders] : [];
+    const index = orders.findIndex((item) =>
+      item.sessionId === order.sessionId
+      || (order.paymentIntentId && item.paymentIntentId === order.paymentIntentId),
+    );
+
+    if (index >= 0) {
+      const existing = orders[index];
+      orders[index] = {
+        ...existing,
+        ...order,
+        status: existing.status === 'returned' ? 'returned' : order.status,
+        returnedAt: existing.returnedAt || order.returnedAt || '',
+        lastError: order.lastError || existing.lastError || '',
+      };
+    } else {
+      orders.push(order);
+    }
+
+    return { orders };
+  });
+};
+
+const updateTrialOrderByPaymentIntent = async (paymentIntent, updates) => {
+  const paymentIntentId = getPaymentIntentId(paymentIntent);
+
+  if (!paymentIntentId) {
+    return;
+  }
+
+  await updateTrialOrders((store) => {
+    const orders = (store.orders || []).map((order) => {
+      if (order.paymentIntentId !== paymentIntentId) {
+        return order;
+      }
+
+      const nextUpdates = typeof updates === 'function' ? updates(order) : updates;
+      return {
+        ...order,
+        ...nextUpdates,
+      };
+    });
+
+    return { orders };
+  });
+};
+
+const handleStripeWebhookEvent = async (stripeClient, event) => {
+  if (event.type === 'checkout.session.completed') {
+    const eventSession = event.data.object;
+    const session = await stripeClient.checkout.sessions.retrieve(eventSession.id, {
+      expand: ['payment_intent'],
+    });
+
+    if (!isTrialSession(session)) {
+      return;
+    }
+
+    await upsertTrialOrder(buildTrialOrderFromSession(session));
+    return;
+  }
+
+  if (event.type === 'payment_intent.succeeded') {
+    await updateTrialOrderByPaymentIntent(event.data.object, {
+      status: 'captured',
+      capturedAt: new Date().toISOString(),
+      lastError: '',
+    });
+    return;
+  }
+
+  if (event.type === 'payment_intent.canceled') {
+    await updateTrialOrderByPaymentIntent(event.data.object, (order) => ({
+      status: order.status === 'returned' ? 'returned' : 'canceled',
+      canceledAt: new Date().toISOString(),
+      lastError: '',
+    }));
+    return;
+  }
+
+  if (event.type === 'payment_intent.payment_failed') {
+    await updateTrialOrderByPaymentIntent(event.data.object, {
+      status: 'failed',
+      lastError: event.data.object?.last_payment_error?.message || 'Payment failed.',
+    });
+  }
+};
+
 const getActiveStripeSettings = async () => {
   let stripeConfig = null;
 
@@ -247,20 +519,6 @@ const getStripeClient = async () => {
   stripeClients.set(cacheKey, client);
 
   return { stripe: client, settings };
-};
-
-const apiPrefix = process.env.API_ROUTE_PREFIX || '/api';
-const normalizedApiPrefix = apiPrefix.replace(/\/$/, '');
-const prefixRoute = (pattern) => {
-  if (!pattern.startsWith('/')) {
-    throw new Error(`Route pattern must start with '/': ${pattern}`);
-  }
-
-  if (!normalizedApiPrefix) {
-    return pattern;
-  }
-
-  return `${normalizedApiPrefix}${pattern}`;
 };
 
 app.post(prefixRoute('/login'), (req, res) => {
@@ -358,6 +616,118 @@ app.put(prefixRoute('/stripe-secrets'), async (req, res) => {
   }
 });
 
+app.get(prefixRoute('/trial-orders'), async (req, res) => {
+  if (!requireAdminAuth(req, res)) {
+    return;
+  }
+
+  try {
+    const store = await readTrialOrders();
+    const orders = [...(store.orders || [])].sort((a, b) => {
+      const aTime = Date.parse(a.createdAt || '') || 0;
+      const bTime = Date.parse(b.createdAt || '') || 0;
+      return bTime - aTime;
+    });
+
+    res.json({ orders, now: new Date().toISOString() });
+  } catch (error) {
+    res.status(500).json({ error: error.message || 'Unable to load trial orders.' });
+  }
+});
+
+app.post(prefixRoute('/trial-orders/:orderId/return'), async (req, res) => {
+  if (!requireAdminAuth(req, res)) {
+    return;
+  }
+
+  const orderId = req.params.orderId;
+
+  if (!orderId || typeof orderId !== 'string') {
+    return res.status(400).json({ error: 'Invalid order id.' });
+  }
+
+  let stripeClient;
+
+  try {
+    ({ stripe: stripeClient } = await getStripeClient());
+  } catch (error) {
+    console.error('Failed to resolve Stripe client for trial return:', error);
+    return res.status(500).json({ error: 'Unable to connect to Stripe.' });
+  }
+
+  if (!stripeClient) {
+    return res.status(500).json({ error: 'Stripe secret key is not configured.' });
+  }
+
+  try {
+    const store = await readTrialOrders();
+    const order = (store.orders || []).find((item) =>
+      item.id === orderId || item.paymentIntentId === orderId || item.sessionId === orderId,
+    );
+
+    if (!order) {
+      return res.status(404).json({ error: 'Trial order not found.' });
+    }
+
+    if (order.status === 'captured') {
+      return res.status(409).json({ error: 'This order has already been captured.' });
+    }
+
+    if (order.status === 'returned') {
+      return res.json({ success: true, order });
+    }
+
+    if (!order.paymentIntentId) {
+      return res.status(409).json({ error: 'This order does not have a PaymentIntent to cancel.' });
+    }
+
+    const paymentIntent = await stripeClient.paymentIntents.retrieve(order.paymentIntentId);
+
+    if (paymentIntent.status === 'succeeded') {
+      await updateTrialOrderByPaymentIntent(paymentIntent, {
+        status: 'captured',
+        capturedAt: new Date().toISOString(),
+        lastError: '',
+      });
+      return res.status(409).json({ error: 'This order has already been captured.' });
+    }
+
+    if (paymentIntent.status === 'requires_capture') {
+      await stripeClient.paymentIntents.cancel(order.paymentIntentId, {}, {
+        idempotencyKey: `trial-return-${order.paymentIntentId}`,
+      });
+    }
+
+    const returnedAt = new Date().toISOString();
+    let returnedOrder = null;
+
+    await updateTrialOrders((currentStore) => {
+      const orders = (currentStore.orders || []).map((item) => {
+        if (item.id !== order.id) {
+          return item;
+        }
+
+        returnedOrder = {
+          ...item,
+          status: 'returned',
+          returnedAt,
+          canceledAt: returnedAt,
+          lastError: '',
+        };
+
+        return returnedOrder;
+      });
+
+      return { orders };
+    });
+
+    res.json({ success: true, order: returnedOrder });
+  } catch (error) {
+    console.error('Failed to mark trial order as returned:', error);
+    res.status(500).json({ error: error.message || 'Unable to mark order as returned.' });
+  }
+});
+
 const createCheckoutSessionRoutes = ['/create-checkout-session'];
 if (apiPrefix) {
   createCheckoutSessionRoutes.push(prefixRoute('/create-checkout-session'));
@@ -381,28 +751,34 @@ app.post(createCheckoutSessionRoutes, async (req, res) => {
     return res.status(500).json({ error: `Add a Stripe secret key for ${modeLabel} mode in the dashboard.` });
   }
 
-  const { quantity, amount, currency, description, priceId, metadata } = req.body || {};
-  const normalizedQuantity = Number.isInteger(quantity) && quantity > 0 ? quantity : 1;
-  const normalizedAmount = Number.isInteger(amount) && amount > 0 ? amount : 4999;
-  const normalizedCurrency = typeof currency === 'string' && currency ? currency.toLowerCase() : 'usd';
-
-  const defaults = {
-    quantity: normalizedQuantity,
-    amount: normalizedAmount,
-    currency: normalizedCurrency,
-    description: 'Skin bundle test checkout',
-  };
+  const trialMetadata = getTrialMetadata();
 
   try {
     const session = await stripeClient.checkout.sessions.create({
       ui_mode: 'custom',
       mode: 'payment',
-      line_items: buildLineItems({ priceId, description }, defaults),
+      payment_method_types: ['card'],
+      line_items: [
+        {
+          price_data: {
+            currency: trialProduct.currency,
+            product_data: {
+              name: trialProduct.name,
+            },
+            unit_amount: trialProduct.amount,
+          },
+          quantity: trialProduct.quantity,
+        },
+      ],
       shipping_address_collection: {
         allowed_countries: ['US'],
       },
       return_url: buildReturnUrl(req),
-      ...(metadata && typeof metadata === 'object' ? { metadata } : {}),
+      metadata: trialMetadata,
+      payment_intent_data: {
+        capture_method: 'manual',
+        metadata: trialMetadata,
+      },
       ...(process.env.STRIPE_ENABLE_AUTOMATIC_TAX === 'true'
         ? { automatic_tax: { enabled: true } }
         : {}),
@@ -538,19 +914,159 @@ app.get(sessionStatusRoutes, async (req, res) => {
     });
 
     const paymentIntent = session.payment_intent;
+    const paymentIntentId = getPaymentIntentId(paymentIntent);
+    const trialOrders = await readTrialOrders().catch(() => ({ orders: [] }));
+    const trialOrder = (trialOrders.orders || []).find((order) =>
+      order.sessionId === session.id || (paymentIntentId && order.paymentIntentId === paymentIntentId),
+    );
 
     res.json({
       id: session.id,
       status: session.status,
       payment_status: session.payment_status,
-      payment_intent_id: paymentIntent ? paymentIntent.id : null,
+      payment_intent_id: paymentIntentId || null,
       payment_intent_status: paymentIntent ? paymentIntent.status : null,
+      capture_status: trialOrder ? trialOrder.status : null,
+      capture_at: trialOrder ? trialOrder.captureAt : null,
     });
   } catch (error) {
     console.error('Stripe session status failed:', error);
     res.status(500).json({ error: error.message || 'Unable to retrieve session status.' });
   }
 });
+
+const markOrderForCapture = async (order) => {
+  let markedOrder = null;
+
+  await updateTrialOrders((store) => {
+    const orders = (store.orders || []).map((item) => {
+      if (item.id !== order.id || item.status !== 'authorized') {
+        return item;
+      }
+
+      markedOrder = {
+        ...item,
+        status: 'capturing',
+        captureAttemptedAt: new Date().toISOString(),
+      };
+
+      return markedOrder;
+    });
+
+    return { orders };
+  });
+
+  return markedOrder;
+};
+
+const captureDueTrialOrder = async (stripeClient, order) => {
+  if (!order.paymentIntentId) {
+    await updateTrialOrders((store) => ({
+      orders: (store.orders || []).map((item) =>
+        item.id === order.id
+          ? { ...item, status: 'failed', lastError: 'Missing PaymentIntent ID.' }
+          : item,
+      ),
+    }));
+    return;
+  }
+
+  const markedOrder = await markOrderForCapture(order);
+
+  if (!markedOrder) {
+    return;
+  }
+
+  try {
+    const paymentIntent = await stripeClient.paymentIntents.retrieve(markedOrder.paymentIntentId);
+
+    if (paymentIntent.status === 'succeeded') {
+      await updateTrialOrderByPaymentIntent(paymentIntent, {
+        status: 'captured',
+        capturedAt: new Date().toISOString(),
+        lastError: '',
+      });
+      return;
+    }
+
+    if (paymentIntent.status === 'canceled') {
+      await updateTrialOrderByPaymentIntent(paymentIntent, {
+        status: 'canceled',
+        canceledAt: new Date().toISOString(),
+        lastError: '',
+      });
+      return;
+    }
+
+    if (paymentIntent.status !== 'requires_capture') {
+      await updateTrialOrderByPaymentIntent(paymentIntent, {
+        status: 'failed',
+        lastError: `PaymentIntent is ${paymentIntent.status}, not requires_capture.`,
+      });
+      return;
+    }
+
+    await stripeClient.paymentIntents.capture(markedOrder.paymentIntentId, {}, {
+      idempotencyKey: `trial-capture-${markedOrder.paymentIntentId}`,
+    });
+
+    await updateTrialOrderByPaymentIntent(paymentIntent, {
+      status: 'captured',
+      capturedAt: new Date().toISOString(),
+      lastError: '',
+    });
+  } catch (error) {
+    console.error(`Failed to capture trial order ${markedOrder.id}:`, error);
+    await updateTrialOrders((store) => ({
+      orders: (store.orders || []).map((item) =>
+        item.id === markedOrder.id
+          ? {
+              ...item,
+              status: 'failed',
+              lastError: error.message || 'Unable to capture PaymentIntent.',
+            }
+          : item,
+      ),
+    }));
+  }
+};
+
+const runCaptureScheduler = async () => {
+  if (isCaptureSchedulerRunning) {
+    return;
+  }
+
+  isCaptureSchedulerRunning = true;
+
+  try {
+    const { stripe } = await getStripeClient();
+
+    if (!stripe) {
+      return;
+    }
+
+    const store = await readTrialOrders();
+    const now = Date.now();
+    const dueOrders = (store.orders || []).filter((order) =>
+      order.status === 'authorized'
+      && order.captureAt
+      && (Date.parse(order.captureAt) || 0) <= now,
+    );
+
+    for (const order of dueOrders) {
+      await captureDueTrialOrder(stripe, order);
+    }
+  } catch (error) {
+    console.error('Trial capture scheduler failed:', error);
+  } finally {
+    isCaptureSchedulerRunning = false;
+  }
+};
+
+if (trialCaptureSchedulerMs > 0) {
+  setInterval(runCaptureScheduler, trialCaptureSchedulerMs);
+  setTimeout(runCaptureScheduler, 10 * 1000);
+}
 
 app.listen(port, () => {
   console.log(`Stripe checkout server running on port ${port}`);

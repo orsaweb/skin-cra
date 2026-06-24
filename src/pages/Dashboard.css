@@ -285,6 +285,147 @@
   font-size: 0.9rem;
 }
 
+.dashboard__trial-orders {
+  background: #ffffff;
+  border-radius: 1rem;
+  box-shadow: 0 22px 44px rgba(15, 23, 42, 0.1);
+  padding: 1.75rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.dashboard__trial-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.dashboard__trial-header h2 {
+  margin: 0;
+  font-family: 'Merriweather', 'Times New Roman', serif;
+  font-size: 1.5rem;
+}
+
+.dashboard__trial-header p,
+.dashboard__trial-empty {
+  margin: 0.35rem 0 0;
+  color: #475467;
+}
+
+.dashboard__trial-header button,
+.dashboard__trial-return {
+  border: none;
+  border-radius: 999px;
+  padding: 0.65rem 1.15rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: #101828;
+  color: #fff;
+}
+
+.dashboard__trial-header button:disabled,
+.dashboard__trial-return:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.dashboard__trial-status {
+  margin: 0;
+  font-weight: 600;
+}
+
+.dashboard__trial-status--success {
+  color: #047857;
+}
+
+.dashboard__trial-status--error {
+  color: #b91c1c;
+}
+
+.dashboard__trial-status--saving {
+  color: #1d4ed8;
+}
+
+.dashboard__trial-table-wrap {
+  overflow-x: auto;
+}
+
+.dashboard__trial-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 900px;
+}
+
+.dashboard__trial-table th,
+.dashboard__trial-table td {
+  border-bottom: 1px solid #e2e8f0;
+  padding: 0.85rem;
+  text-align: left;
+  vertical-align: top;
+  font-size: 0.9rem;
+}
+
+.dashboard__trial-table th {
+  color: #475467;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.dashboard__trial-table td span {
+  display: block;
+  color: #475467;
+  margin-top: 0.25rem;
+}
+
+.dashboard__trial-pill {
+  display: inline-block !important;
+  width: fit-content;
+  margin-top: 0 !important;
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  background: #e2e8f0;
+  color: #0f172a !important;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.dashboard__trial-pill--authorized {
+  background: #dbeafe;
+  color: #1d4ed8 !important;
+}
+
+.dashboard__trial-pill--capturing {
+  background: #fef3c7;
+  color: #92400e !important;
+}
+
+.dashboard__trial-pill--captured {
+  background: #dcfce7;
+  color: #047857 !important;
+}
+
+.dashboard__trial-pill--returned,
+.dashboard__trial-pill--canceled {
+  background: #f1f5f9;
+  color: #475467 !important;
+}
+
+.dashboard__trial-pill--failed {
+  background: #fee2e2;
+  color: #b91c1c !important;
+}
+
+.dashboard__trial-error {
+  color: #b91c1c !important;
+  max-width: 240px;
+}
+
+.dashboard__trial-return {
+  white-space: nowrap;
+}
+
 .dashboard__section {
   border-radius: 1rem;
   background: #fff;

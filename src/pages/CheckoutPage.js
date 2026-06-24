@@ -35,7 +35,7 @@ function CheckoutPage() {
       return [];
     }
 
-    return checkout.options.filter(Boolean);
+    return checkout.options.filter(Boolean).slice(0, 1);
   }, [checkout]);
 
   const queryParams = useMemo(() => new URLSearchParams(window.location.search), []);
@@ -113,7 +113,7 @@ function CheckoutPage() {
   }, [checkout?.currency, selectedOption]);
 
   const handleBackToProducts = useCallback(() => {
-    window.location.href = '/products';
+    window.location.href = '/';
   }, []);
 
   let body = null;
@@ -137,7 +137,7 @@ function CheckoutPage() {
       <div className="checkout-page__layout">
         <section className="checkout-page__details">
           <button type="button" className="checkout-page__back" onClick={handleBackToProducts}>
-            ← Back to products
+            Back to home
           </button>
           {pageHeading ? <h1>{pageHeading}</h1> : null}
           <article className="checkout-page__card">

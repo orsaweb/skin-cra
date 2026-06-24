@@ -481,9 +481,18 @@ function StripeCheckoutForm({ selectedOption, onBackToOptions, sessionId, apiBas
       }
 
       setStatus(STATUS.loading);
-      setMessage('Redirecting to confirmation…');
+        setMessage('Confirming your risk-free trial...');
     },
-    [checkout, emailValue, isShippingComplete, persistPhoneMetadata, phoneValue, updateCheckoutEmail, validateEmailValue],
+    [
+      checkout,
+      emailValue,
+      isShippingComplete,
+      persistPhoneMetadata,
+      phoneValue,
+      syncPhoneWithCheckout,
+      updateCheckoutEmail,
+      validateEmailValue,
+    ],
   );
 
   if (checkoutStatus === 'loading') {
@@ -506,7 +515,7 @@ function StripeCheckoutForm({ selectedOption, onBackToOptions, sessionId, apiBas
       {selectedOption ? (
         <div className="checkout-summary" aria-live="polite">
           <div className="checkout-summary__details">
-            <p className="checkout-summary__label">Selected Package</p>
+            <p className="checkout-summary__label">Risk-Free Trial</p>
             <p className="checkout-summary__name">{selectedOption.name}</p>
             {selectedOption.summary ? (
               <p className="checkout-summary__description">{selectedOption.summary}</p>
@@ -599,7 +608,7 @@ function StripeCheckoutForm({ selectedOption, onBackToOptions, sessionId, apiBas
         htmlFor="shipping-address-element"
         style={{ fontFamily: 'Lato, sans-serif' }}
       >
-        Shipping Information
+        Shipping Information (Required)
       </label>
       <div
         className={`stripe-address-element${shippingError ? ' stripe-input-error' : ''}`}
@@ -615,6 +624,18 @@ function StripeCheckoutForm({ selectedOption, onBackToOptions, sessionId, apiBas
           {shippingError}
         </div>
       ) : null}
+      <div className="trial-disclosure" role="note">
+        <strong>Card not charged today.</strong>
+        {' '}
+        A $60 authorization hold is placed now. The $60 charge is captured only if the product is not returned within 7 days.
+      </div>
+      <label
+        className="stripe-input-label"
+        htmlFor="payment-element"
+        style={{ fontFamily: 'Lato, sans-serif' }}
+      >
+        Payment Method
+      </label>
       <PaymentElement
         id="payment-element"
         options={paymentElementOptions}
@@ -625,7 +646,7 @@ function StripeCheckoutForm({ selectedOption, onBackToOptions, sessionId, apiBas
         className="stripe-submit-button btn btn-primary btn-one-style"
         disabled={isProcessing || !checkout || !canSubmit}
       >
-        <span>{isProcessing ? 'Processing…' : 'Complete Purchase'}</span>
+        <span>{isProcessing ? 'Processing...' : 'Authorize Card - $0 Charged Today'}</span>
       </button>
       {message ? (
         <div

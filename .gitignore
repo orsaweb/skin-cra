@@ -27,3 +27,4 @@ server/stripe-secrets.json
 
 # runtime data written by the production server
 server/contact-messages.json
+server/trial-orders.json

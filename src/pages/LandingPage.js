@@ -50,7 +50,7 @@ function LandingPage() {
   }, []);
 
   const handleNavigateToProducts = useCallback(() => {
-    window.location.href = '/products';
+    window.location.href = '/checkout';
   }, []);
 
   const body = useMemo(() => {

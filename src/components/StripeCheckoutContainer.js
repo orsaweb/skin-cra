@@ -38,10 +38,11 @@ function StripeCheckoutContainer({
   hideInlineOptions = false,
 }) {
   const productOptions = useMemo(
-    () => (Array.isArray(checkout?.options) ? checkout.options.filter(Boolean) : []),
+    () => (Array.isArray(checkout?.options) ? checkout.options.filter(Boolean).slice(0, 1) : []),
     [checkout?.options],
   );
   const hasProductOptions = productOptions.length > 0;
+  const hasMultipleProductOptions = productOptions.length > 1;
   const isInline = displayMode === 'inline';
 
   const defaultOptionId = useMemo(() => {
@@ -58,7 +59,7 @@ function StripeCheckoutContainer({
   }, [forceSelectedOptionId, hasProductOptions, productOptions]);
 
   const [clientSecret, setClientSecret] = useState('');
-  const [message, setMessage] = useState(hasProductOptions ? '' : 'Preparing checkout…');
+  const [message, setMessage] = useState(hasProductOptions ? '' : 'Preparing checkout...');
   const [isLoading, setIsLoading] = useState(!hasProductOptions);
   const [selectionError, setSelectionError] = useState('');
   const [selectedOptionId, setSelectedOptionId] = useState(defaultOptionId);
@@ -149,7 +150,7 @@ function StripeCheckoutContainer({
       const priceId = option?.priceId || fallbackPriceId;
       const normalizedPrice = Number(option?.price);
       const resolvedAmount = Number.isFinite(normalizedPrice) ? Math.round(normalizedPrice * 100) : undefined;
-      const description = option?.checkoutDescription || option?.name || checkout?.title || 'Skin bundle checkout';
+      const description = option?.checkoutDescription || option?.name || checkout?.title || 'Risk-free trial checkout';
 
       const metadata = {
         ...DEFAULT_METADATA,
@@ -198,7 +199,7 @@ function StripeCheckoutContainer({
       }
 
       setIsLoading(true);
-      setMessage('Preparing checkout…');
+      setMessage('Preparing checkout...');
       if (captureSelectionError) {
         setSelectionError('');
       }
@@ -238,11 +239,11 @@ function StripeCheckoutContainer({
           return null;
         }
 
-  console.error('Failed to initialize Stripe:', error);
-  const finalMessage = error?.message || 'Unable to prepare checkout.';
-  setClientSecret('');
-  setActiveSessionId('');
-  setMessage(finalMessage);
+        console.error('Failed to initialize Stripe:', error);
+        const finalMessage = error?.message || 'Unable to prepare checkout.';
+        setClientSecret('');
+        setActiveSessionId('');
+        setMessage(finalMessage);
 
         if (captureSelectionError) {
           setSelectionError(finalMessage);
@@ -301,7 +302,12 @@ function StripeCheckoutContainer({
   }, [buildPayload, hasProductOptions, isInline, isReturnView, requestClientSecret]);
 
   useEffect(() => {
-    if (!isInline || !hasProductOptions || !selectedOption || isReturnView) {
+    const shouldFetchSelectedOption = (isInline || !hasMultipleProductOptions)
+      && hasProductOptions
+      && selectedOption
+      && !isReturnView;
+
+    if (!shouldFetchSelectedOption) {
       return undefined;
     }
 
@@ -327,7 +333,16 @@ function StripeCheckoutContainer({
     return () => {
       controller.abort();
     };
-  }, [buildPayload, clientSecret, hasProductOptions, isInline, isReturnView, requestClientSecret, selectedOption]);
+  }, [
+    buildPayload,
+    clientSecret,
+    hasMultipleProductOptions,
+    hasProductOptions,
+    isInline,
+    isReturnView,
+    requestClientSecret,
+    selectedOption,
+  ]);
 
   const handleOptionChange = useCallback((event) => {
     if (forceSelectedOptionId) {
@@ -342,7 +357,7 @@ function StripeCheckoutContainer({
 
   const handleOptionSubmit = useCallback(async () => {
     if (!selectedOption) {
-      setSelectionError('Select a package to continue.');
+      setSelectionError('Select the trial to continue.');
       return;
     }
 
@@ -456,12 +471,12 @@ function StripeCheckoutContainer({
 
     if (isLoading) {
       formContent = (
-        <div className="stripe-status-message" role="status">{message || 'Preparing checkout…'}</div>
+        <div className="stripe-status-message" role="status">{message || 'Preparing checkout...'}</div>
       );
     } else if (!clientSecret) {
       const inlineFallbackMessage = hideInlineOptions
-        ? selectionError || message || 'Preparing checkout…'
-        : selectionError || message || 'Select a package to load checkout.';
+        ? selectionError || message || 'Preparing checkout...'
+        : selectionError || message || 'Select the trial to load checkout.';
       formContent = (
         <div className="stripe-status-message" role={selectionError ? 'alert' : 'status'}>
           {inlineFallbackMessage}
@@ -515,7 +530,7 @@ function StripeCheckoutContainer({
       );
     }
 
-    if (hideInlineOptions) {
+    if (hideInlineOptions || !hasMultipleProductOptions) {
       return (
         <div className="checkout-inline__form-only">
           <div className="checkout-inline__column checkout-inline__column--form">{formContent}</div>
@@ -541,11 +556,11 @@ function StripeCheckoutContainer({
     );
   }
 
-  if (hasProductOptions && !clientSecret) {
+  if (hasMultipleProductOptions && !clientSecret) {
     return (
       <div className="checkout-options" aria-busy={isLoading ? 'true' : 'false'}>
         <div className="checkout-options__header">
-          <h2>{checkout?.title || 'Choose your package'}</h2>
+          <h2>{checkout?.title || 'Choose your trial'}</h2>
           {checkout?.subtitle ? <p>{checkout.subtitle}</p> : null}
         </div>
         <div className="checkout-options__grid">
@@ -558,7 +573,7 @@ function StripeCheckoutContainer({
             onClick={handleOptionSubmit}
             disabled={isLoading || !selectedOption}
           >
-            <span>{isLoading ? 'Preparing checkout…' : checkout?.continueLabel || 'Continue to payment'}</span>
+            <span>{isLoading ? 'Preparing checkout...' : checkout?.continueLabel || 'Continue to payment'}</span>
           </button>
           {selectionError ? (
             <div className="stripe-status-message stripe-status-error" role="alert">{selectionError}</div>
@@ -619,7 +634,7 @@ function StripeCheckoutContainer({
     >
       <StripeCheckoutForm
         selectedOption={selectedOptionSummary}
-        onBackToOptions={hasProductOptions ? handleBackToOptions : undefined}
+        onBackToOptions={hasMultipleProductOptions ? handleBackToOptions : undefined}
         sessionId={activeSessionId}
         apiBase={apiBase}
       />
@@ -660,6 +675,7 @@ StripeCheckoutContainer.propTypes = {
         quantity: PropTypes.number,
         badge: PropTypes.string,
         displayPrice: PropTypes.string,
+        summary: PropTypes.string,
         subcopy: PropTypes.string,
         metadata: PropTypes.object,
         bestValue: PropTypes.bool,
