@@ -108,9 +108,9 @@
 .spq-template .spq-small-link {
   display: inline-block;
   color: #06f;
-  font-size: 14px;
+  font-size: 14px !important;
   font-weight: 300;
-  line-height: 18px;
+  line-height: 18px !important;
 }
 
 .spq-template .spq-block {
@@ -120,9 +120,17 @@
 .spq-template .spq-copy,
 .spq-template .spq-copy span,
 .spq-template .spq-copy font,
+.spq-template .spq-copy b,
+.spq-template .spq-copy strong,
+.spq-template .spq-copy em,
+.spq-template .spq-copy a:not(.spq-small-link):not(.spq-button),
 .spq-template .spq-copy div:not(.blog-image-row),
-.spq-template .blog-image-row span {
+.spq-template .blog-image-row span,
+.spq-template .blog-image-row font,
+.spq-template .spq-quote,
+.spq-template .spq-quote * {
   font-size: 22px !important;
+  line-height: 1.5 !important;
 }
 
 .spq-template .spq-section-title {
