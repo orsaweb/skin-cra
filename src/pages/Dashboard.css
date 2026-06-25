@@ -654,6 +654,65 @@
   margin-top: 0.75rem;
 }
 
+.dashboard__blog-image-row {
+  display: grid;
+  grid-template-columns: 132px minmax(0, 1fr) auto;
+  gap: 1rem;
+  align-items: center;
+  padding: 0.85rem;
+  border-radius: 0.75rem;
+  background: #ffffff;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+}
+
+.dashboard__blog-image-row + .dashboard__blog-image-row {
+  margin-top: 0.85rem;
+}
+
+.dashboard__blog-image-preview {
+  width: 132px;
+  aspect-ratio: 4 / 3;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 0.625rem;
+  background: #e2e8f0;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+}
+
+.dashboard__blog-image-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.dashboard__blog-image-fields {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.dashboard__blog-image-fields label {
+  display: grid;
+  gap: 0.45rem;
+  color: #1f2937;
+  font-weight: 600;
+}
+
+.dashboard__blog-image-fields input {
+  width: 100%;
+  border: 1px solid #cbd5f5;
+  border-radius: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 0.95rem;
+}
+
+.dashboard__blog-image-upload {
+  white-space: nowrap;
+}
+
 .dashboard__blog-preview {
   display: grid;
   gap: 0.75rem;
@@ -670,6 +729,19 @@
   position: sticky;
   top: 0;
   z-index: 1;
+}
+
+.dashboard__blog-editable-preview {
+  outline: none;
+}
+
+.dashboard__blog-editable-preview:focus,
+.dashboard__blog-editable-preview:focus-within {
+  box-shadow: inset 0 0 0 3px rgba(29, 78, 216, 0.18);
+}
+
+.dashboard__blog-editable-preview a {
+  cursor: text;
 }
 
 .dashboard__section {
@@ -863,6 +935,25 @@
 
   .dashboard__save-hint {
     margin-left: 0;
+  }
+
+  .dashboard__blog-header,
+  .dashboard__blog-editor-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .dashboard__blog-layout,
+  .dashboard__blog-image-row {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard__blog-image-preview {
+    width: 100%;
+  }
+
+  .dashboard__blog-image-upload {
+    justify-self: flex-start;
   }
 
   .dashboard__section summary {

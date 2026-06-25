@@ -72,6 +72,7 @@ const updateTemplateHtml = (html, updater) => {
 
 function BlogPostsManager({ authHeader, onUnauthorized }) {
   const htmlTextareaRef = useRef(null);
+  const previewArticleRef = useRef(null);
   const selectedPostIdRef = useRef('');
   const [posts, setPosts] = useState([]);
   const [selectedPostId, setSelectedPostId] = useState('');
@@ -80,6 +81,7 @@ function BlogPostsManager({ authHeader, onUnauthorized }) {
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [uploadingImageIndex, setUploadingImageIndex] = useState(null);
 
   const selectedPost = useMemo(() => (
     posts.find((post) => post.id === selectedPostId) || null
@@ -259,17 +261,22 @@ function BlogPostsManager({ authHeader, onUnauthorized }) {
       return;
     }
 
+    const latestPreviewHtml = previewArticleRef.current?.innerHTML;
+    const payloadDraft = typeof latestPreviewHtml === 'string' && latestPreviewHtml !== draft.html
+      ? { ...draft, html: latestPreviewHtml }
+      : draft;
+
     setIsSaving(true);
     setStatus({ state: 'saving', message: 'Saving blog post...' });
 
     try {
-      const response = await fetch(`${BLOG_POSTS_ENDPOINT}/${encodeURIComponent(draft.id)}`, {
+      const response = await fetch(`${BLOG_POSTS_ENDPOINT}/${encodeURIComponent(payloadDraft.id)}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           Authorization: authHeader,
         },
-        body: JSON.stringify(draft),
+        body: JSON.stringify(payloadDraft),
       });
       const payload = await response.json().catch(() => ({}));
 
@@ -378,6 +385,32 @@ function BlogPostsManager({ authHeader, onUnauthorized }) {
     });
   }, [updateHtml]);
 
+  const uploadImageFile = useCallback(async (file) => {
+    if (!file || !authHeader) {
+      return '';
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch(UPLOAD_ENDPOINT, {
+      method: 'POST',
+      headers: { Authorization: authHeader },
+      body: formData,
+    });
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        onUnauthorized();
+      }
+
+      throw new Error(payload.error || `Image upload failed (${response.status})`);
+    }
+
+    return payload.path || '';
+  }, [authHeader, onUnauthorized]);
+
   const insertHtmlAtCursor = useCallback((snippet) => {
     setDraft((prev) => {
       const current = prev?.html || '';
@@ -414,29 +447,13 @@ function BlogPostsManager({ authHeader, onUnauthorized }) {
       return;
     }
 
-    const formData = new FormData();
-    formData.append('file', file);
     setIsUploadingImage(true);
     setStatus({ state: 'saving', message: 'Uploading image...' });
 
     try {
-      const response = await fetch(UPLOAD_ENDPOINT, {
-        method: 'POST',
-        headers: { Authorization: authHeader },
-        body: formData,
-      });
-      const payload = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          onUnauthorized();
-        }
-
-        throw new Error(payload.error || `Image upload failed (${response.status})`);
-      }
-
-      if (payload.path) {
-        insertHtmlAtCursor(`<div class="spq-block spq-copy"><div class="blog-image-row"><img src="${payload.path}" alt=""></div></div>`);
+      const uploadedPath = await uploadImageFile(file);
+      if (uploadedPath) {
+        insertHtmlAtCursor(`<div class="spq-block spq-copy"><div class="blog-image-row"><img src="${uploadedPath}" alt=""></div></div>`);
         setStatus({ state: 'success', message: 'Image uploaded and inserted into HTML.' });
       }
     } catch (error) {
@@ -448,11 +465,64 @@ function BlogPostsManager({ authHeader, onUnauthorized }) {
       setIsUploadingImage(false);
       event.target.value = '';
     }
-  }, [authHeader, insertHtmlAtCursor, onUnauthorized]);
+  }, [authHeader, insertHtmlAtCursor, uploadImageFile]);
+
+  const uploadAndReplaceImage = useCallback(async (event, index) => {
+    const file = event.target.files && event.target.files[0];
+    if (!file || !authHeader) {
+      return;
+    }
+
+    setUploadingImageIndex(index);
+    setStatus({ state: 'saving', message: 'Replacing image...' });
+
+    try {
+      const uploadedPath = await uploadImageFile(file);
+
+      if (uploadedPath) {
+        updateImage(index, 'src', uploadedPath);
+        setStatus({ state: 'success', message: 'Image replaced.' });
+      }
+    } catch (error) {
+      setStatus({
+        state: 'error',
+        message: error instanceof Error ? error.message : 'Image upload failed.',
+      });
+    } finally {
+      setUploadingImageIndex(null);
+      event.target.value = '';
+    }
+  }, [authHeader, updateImage, uploadImageFile]);
 
   const insertButton = useCallback(() => {
     insertHtmlAtCursor(`<div class="spq-block spq-center"><a class="spq-button" href="${HOME_URL}">Check Eligibility</a></div>`);
   }, [insertHtmlAtCursor]);
+
+  const syncPreviewHtml = useCallback(() => {
+    const nextHtml = previewArticleRef.current?.innerHTML;
+
+    if (typeof nextHtml !== 'string') {
+      return;
+    }
+
+    setDraft((prev) => {
+      if (!prev || prev.html === nextHtml) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        html: nextHtml,
+      };
+    });
+    setStatus({ state: 'idle', message: '' });
+  }, []);
+
+  const preventPreviewNavigation = useCallback((event) => {
+    if (event.target instanceof Element && event.target.closest('a')) {
+      event.preventDefault();
+    }
+  }, []);
 
   return (
     <section className="dashboard__blog-manager">
@@ -601,21 +671,41 @@ function BlogPostsManager({ authHeader, onUnauthorized }) {
               <details>
                 <summary>Detected Images</summary>
                 {editableItems.images.length ? editableItems.images.map((image) => (
-                  <div key={`image-${image.index}`} className="dashboard__blog-detected-row">
-                    <label>
-                      Source
+                  <div key={`image-${image.index}`} className="dashboard__blog-image-row">
+                    <div className="dashboard__blog-image-preview">
+                      {image.src ? <img src={image.src} alt={image.alt || `Blog visual ${image.index + 1}`} /> : null}
+                    </div>
+                    <div className="dashboard__blog-image-fields">
+                      <label>
+                        Source
+                        <input
+                          type="text"
+                          value={image.src}
+                          onChange={(event) => updateImage(image.index, 'src', event.target.value)}
+                        />
+                      </label>
+                      <label>
+                        Alt text
+                        <input
+                          type="text"
+                          value={image.alt}
+                          onChange={(event) => updateImage(image.index, 'alt', event.target.value)}
+                        />
+                      </label>
+                    </div>
+                    <label
+                      className={
+                        uploadingImageIndex === image.index
+                          ? 'dashboard__blog-upload dashboard__blog-image-upload is-disabled'
+                          : 'dashboard__blog-upload dashboard__blog-image-upload'
+                      }
+                    >
+                      {uploadingImageIndex === image.index ? 'Uploading...' : 'Replace image'}
                       <input
-                        type="text"
-                        value={image.src}
-                        onChange={(event) => updateImage(image.index, 'src', event.target.value)}
-                      />
-                    </label>
-                    <label>
-                      Alt text
-                      <input
-                        type="text"
-                        value={image.alt}
-                        onChange={(event) => updateImage(image.index, 'alt', event.target.value)}
+                        type="file"
+                        accept="image/*"
+                        onChange={(event) => uploadAndReplaceImage(event, image.index)}
+                        disabled={uploadingImageIndex === image.index}
                       />
                     </label>
                   </div>
@@ -643,7 +733,15 @@ function BlogPostsManager({ authHeader, onUnauthorized }) {
                     <span className="spq-logo__text">{draft.headerBrand || 'Skin Care Daily'}</span>
                   </span>
                 </div>
-                <article className="spq-article" dangerouslySetInnerHTML={{ __html: draft.html }} />
+                <article
+                  ref={previewArticleRef}
+                  className="spq-article dashboard__blog-editable-preview"
+                  contentEditable
+                  suppressContentEditableWarning
+                  onBlur={syncPreviewHtml}
+                  onClick={preventPreviewNavigation}
+                  dangerouslySetInnerHTML={{ __html: draft.html }}
+                />
               </div>
             </div>
           </div>
