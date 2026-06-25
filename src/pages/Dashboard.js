@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import './Dashboard.css';
+import BlogPostsManager from '../components/dashboard/BlogPostsManager';
 import { resolveAssetPath, updateFavicon } from '../components/landing/utils';
 
 const STORAGE_KEY = 'landing-dashboard-auth';
@@ -1355,6 +1356,8 @@ function Dashboard() {
         </section>
 
         {renderTrialOrders()}
+
+        <BlogPostsManager authHeader={authHeader} onUnauthorized={handleLogout} />
 
         <section className="dashboard__sections">
           {draftContent && typeof draftContent === 'object'

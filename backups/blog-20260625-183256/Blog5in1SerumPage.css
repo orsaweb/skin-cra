@@ -71,31 +71,6 @@
   padding: 32px 0;
 }
 
-.spq-status {
-  max-width: 720px;
-  margin: 64px auto;
-  padding: 0 15px;
-  color: #475467;
-  font-family: Roboto, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
-  font-size: 18px;
-  line-height: 1.5;
-}
-
-.spq-status h1 {
-  margin: 0 0 0.75rem;
-  color: #212529;
-  font-size: 2rem;
-  line-height: 1.2;
-}
-
-.spq-status p {
-  margin: 0;
-}
-
-.spq-status--error {
-  color: #b91c1c;
-}
-
 .blog-image-row {
   display: grid;
   gap: 0.6rem;

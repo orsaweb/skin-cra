@@ -92,8 +92,9 @@ function App() {
     return <LegacyBlogRedirect />;
   }
 
-  if (path === '/blog/skincaredaily') {
-    return <Blog5in1SerumPage />;
+  if (path.startsWith('/blog/')) {
+    const slug = path.replace(/^\/blog\//, '');
+    return <Blog5in1SerumPage slug={slug} />;
   }
 
   return <LandingPage />;

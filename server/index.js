@@ -7,6 +7,7 @@ const Stripe = require('stripe');
 const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
+const crypto = require('crypto');
 
 const { promises: fsPromises } = fs;
 
@@ -20,6 +21,8 @@ const contentFilePath = path.resolve(__dirname, '../public/landing-content.json'
 const uploadsDir = path.resolve(__dirname, '../public/uploads');
 const stripeSecretsFilePath = path.resolve(__dirname, 'stripe-secrets.json');
 const trialOrdersFilePath = path.resolve(__dirname, 'trial-orders.json');
+const blogPostsFilePath = path.resolve(__dirname, 'blog-posts.json');
+const blogPostsSeedFilePath = path.resolve(__dirname, '../public/blog-posts.json');
 const apiPrefix = process.env.API_ROUTE_PREFIX || '/api';
 const normalizedApiPrefix = apiPrefix.replace(/\/$/, '');
 const trialProduct = {
@@ -211,6 +214,130 @@ const loadContent = async () => {
 const saveContent = async (content) => {
   const payload = `${JSON.stringify(content, null, 2)}\n`;
   await fsPromises.writeFile(contentFilePath, payload, 'utf8');
+};
+
+const createId = (prefix) => {
+  if (typeof crypto.randomUUID === 'function') {
+    return `${prefix}-${crypto.randomUUID()}`;
+  }
+
+  return `${prefix}-${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+};
+
+const sanitizeSlug = (value) => {
+  const slug = String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 96);
+
+  return slug || 'blog-post';
+};
+
+const getUniqueBlogSlug = (value, posts, currentId) => {
+  const baseSlug = sanitizeSlug(value);
+  let slug = baseSlug;
+  let suffix = 2;
+
+  while ((posts || []).some((post) => post.id !== currentId && post.slug === slug)) {
+    slug = `${baseSlug}-${suffix}`;
+    suffix += 1;
+  }
+
+  return slug;
+};
+
+const createEmptyBlogHtml = (title) => (
+  `<div class="spq-template"><h1 class="spq-title">${title || 'New Blog Post'}</h1><div class="spq-block spq-copy">Start writing your post here.</div><div class="spq-block spq-center"><a class="spq-button" href="https://5in1facialserum.com/">Check Eligibility</a></div></div>`
+);
+
+const normalizeBlogPost = (post, index = 0) => {
+  const now = new Date().toISOString();
+  const source = post && typeof post === 'object' && !Array.isArray(post) ? post : {};
+  const title = typeof source.title === 'string' && source.title.trim()
+    ? source.title.trim()
+    : `Blog Post ${index + 1}`;
+  const id = typeof source.id === 'string' && source.id.trim()
+    ? source.id.trim()
+    : createId('blog');
+
+  return {
+    id,
+    slug: sanitizeSlug(source.slug || title),
+    title,
+    metaTitle: typeof source.metaTitle === 'string' ? source.metaTitle : title,
+    headerBrand: typeof source.headerBrand === 'string' ? source.headerBrand : 'Skin Care Daily',
+    headerIcon: typeof source.headerIcon === 'string' ? source.headerIcon : 'S',
+    html: typeof source.html === 'string' ? source.html : createEmptyBlogHtml(title),
+    createdAt: typeof source.createdAt === 'string' && source.createdAt ? source.createdAt : now,
+    updatedAt: typeof source.updatedAt === 'string' && source.updatedAt ? source.updatedAt : now,
+  };
+};
+
+const normalizeBlogStore = (store) => {
+  const sourcePosts = store && typeof store === 'object' && Array.isArray(store.posts)
+    ? store.posts
+    : [];
+  const posts = [];
+
+  sourcePosts.forEach((post, index) => {
+    const normalized = normalizeBlogPost(post, index);
+    normalized.slug = getUniqueBlogSlug(normalized.slug, posts, normalized.id);
+    posts.push(normalized);
+  });
+
+  return { posts };
+};
+
+const readBlogPosts = async () => {
+  try {
+    const buffer = await fsPromises.readFile(blogPostsFilePath);
+    return normalizeBlogStore(JSON.parse(stripBom(buffer.toString('utf8'))));
+  } catch (error) {
+    if (!error || error.code !== 'ENOENT') {
+      console.error('Failed to read blog posts file:', error);
+      throw new Error('Unable to load blog posts.');
+    }
+  }
+
+  try {
+    const seedBuffer = await fsPromises.readFile(blogPostsSeedFilePath);
+    return normalizeBlogStore(JSON.parse(stripBom(seedBuffer.toString('utf8'))));
+  } catch (error) {
+    if (error && error.code !== 'ENOENT') {
+      console.error('Failed to read blog posts seed file:', error);
+      throw new Error('Unable to load blog posts.');
+    }
+
+    return { posts: [] };
+  }
+};
+
+const writeBlogPosts = async (store) => {
+  const payload = `${JSON.stringify(normalizeBlogStore(store), null, 2)}\n`;
+  await fsPromises.writeFile(blogPostsFilePath, payload, 'utf8');
+};
+
+const buildBlogPostFromPayload = (body, existingPost, posts) => {
+  const now = new Date().toISOString();
+  const source = body && typeof body === 'object' && !Array.isArray(body) ? body : {};
+  const title = typeof source.title === 'string' && source.title.trim()
+    ? source.title.trim()
+    : existingPost?.title || 'New Blog Post';
+  const id = existingPost?.id || createId('blog');
+
+  return {
+    id,
+    slug: getUniqueBlogSlug(source.slug || existingPost?.slug || title, posts, id),
+    title,
+    metaTitle: typeof source.metaTitle === 'string' ? source.metaTitle : existingPost?.metaTitle || title,
+    headerBrand: typeof source.headerBrand === 'string' ? source.headerBrand : existingPost?.headerBrand || 'Skin Care Daily',
+    headerIcon: typeof source.headerIcon === 'string' ? source.headerIcon : existingPost?.headerIcon || 'S',
+    html: typeof source.html === 'string' ? source.html : existingPost?.html || createEmptyBlogHtml(title),
+    createdAt: existingPost?.createdAt || now,
+    updatedAt: now,
+  };
 };
 
 const defaultStripeSecrets = {
@@ -581,6 +708,132 @@ app.post(prefixRoute('/upload-image'), (req, res) => {
     const publicPath = `/uploads/${req.file.filename}`;
     res.json({ path: publicPath });
   });
+});
+
+app.get(prefixRoute('/blog-posts/:slug'), async (req, res) => {
+  try {
+    const store = await readBlogPosts();
+    const slug = sanitizeSlug(req.params.slug);
+    const post = (store.posts || []).find((item) => item.slug === slug);
+
+    if (!post) {
+      return res.status(404).json({ error: 'Blog post not found.' });
+    }
+
+    res.json({ post });
+  } catch (error) {
+    res.status(500).json({ error: error.message || 'Unable to load blog post.' });
+  }
+});
+
+app.get(prefixRoute('/blog-posts'), async (req, res) => {
+  if (!requireAdminAuth(req, res)) {
+    return;
+  }
+
+  try {
+    const store = await readBlogPosts();
+    res.json(store);
+  } catch (error) {
+    res.status(500).json({ error: error.message || 'Unable to load blog posts.' });
+  }
+});
+
+app.post(prefixRoute('/blog-posts'), async (req, res) => {
+  if (!requireAdminAuth(req, res)) {
+    return;
+  }
+
+  try {
+    const store = await readBlogPosts();
+    const post = buildBlogPostFromPayload(req.body, null, store.posts || []);
+    const nextStore = { posts: [post, ...(store.posts || [])] };
+    await writeBlogPosts(nextStore);
+    res.status(201).json({ post, posts: nextStore.posts });
+  } catch (error) {
+    console.error('Failed to create blog post:', error);
+    res.status(500).json({ error: error.message || 'Unable to create blog post.' });
+  }
+});
+
+app.put(prefixRoute('/blog-posts/:postId'), async (req, res) => {
+  if (!requireAdminAuth(req, res)) {
+    return;
+  }
+
+  try {
+    const store = await readBlogPosts();
+    const postIndex = (store.posts || []).findIndex((post) => post.id === req.params.postId);
+
+    if (postIndex < 0) {
+      return res.status(404).json({ error: 'Blog post not found.' });
+    }
+
+    const updatedPost = buildBlogPostFromPayload(req.body, store.posts[postIndex], store.posts || []);
+    const nextPosts = [...store.posts];
+    nextPosts[postIndex] = updatedPost;
+    const nextStore = { posts: nextPosts };
+    await writeBlogPosts(nextStore);
+    res.json({ post: updatedPost, posts: nextPosts });
+  } catch (error) {
+    console.error('Failed to update blog post:', error);
+    res.status(500).json({ error: error.message || 'Unable to update blog post.' });
+  }
+});
+
+app.post(prefixRoute('/blog-posts/:postId/duplicate'), async (req, res) => {
+  if (!requireAdminAuth(req, res)) {
+    return;
+  }
+
+  try {
+    const store = await readBlogPosts();
+    const sourcePost = (store.posts || []).find((post) => post.id === req.params.postId);
+
+    if (!sourcePost) {
+      return res.status(404).json({ error: 'Blog post not found.' });
+    }
+
+    const now = new Date().toISOString();
+    const duplicateTitle = `${sourcePost.title || 'Blog Post'} Copy`;
+    const duplicate = {
+      ...sourcePost,
+      id: createId('blog'),
+      slug: getUniqueBlogSlug(`${sourcePost.slug || duplicateTitle}-copy`, store.posts || []),
+      title: duplicateTitle,
+      metaTitle: sourcePost.metaTitle ? `${sourcePost.metaTitle} Copy` : duplicateTitle,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const nextStore = { posts: [duplicate, ...(store.posts || [])] };
+    await writeBlogPosts(nextStore);
+    res.status(201).json({ post: duplicate, posts: nextStore.posts });
+  } catch (error) {
+    console.error('Failed to duplicate blog post:', error);
+    res.status(500).json({ error: error.message || 'Unable to duplicate blog post.' });
+  }
+});
+
+app.delete(prefixRoute('/blog-posts/:postId'), async (req, res) => {
+  if (!requireAdminAuth(req, res)) {
+    return;
+  }
+
+  try {
+    const store = await readBlogPosts();
+    const nextPosts = (store.posts || []).filter((post) => post.id !== req.params.postId);
+
+    if (nextPosts.length === (store.posts || []).length) {
+      return res.status(404).json({ error: 'Blog post not found.' });
+    }
+
+    const nextStore = { posts: nextPosts };
+    await writeBlogPosts(nextStore);
+    res.json({ success: true, posts: nextPosts });
+  } catch (error) {
+    console.error('Failed to delete blog post:', error);
+    res.status(500).json({ error: error.message || 'Unable to delete blog post.' });
+  }
 });
 
 app.get(prefixRoute('/stripe-secrets'), async (req, res) => {
