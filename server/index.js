@@ -190,7 +190,6 @@ const requireAdminAuth = (req, res) => {
   const credentials = extractBasicCredentials(req);
 
   if (!isValidAdminCredentials(credentials)) {
-    res.set('WWW-Authenticate', 'Basic realm="admin"');
     res.status(401).json({ error: 'Unauthorized' });
     return false;
   }
@@ -652,7 +651,6 @@ app.post(prefixRoute('/login'), (req, res) => {
   const credentials = extractBasicCredentials(req);
 
   if (!isValidAdminCredentials(credentials)) {
-    res.set('WWW-Authenticate', 'Basic realm="admin"');
     return res.status(401).json({ error: 'Invalid credentials.' });
   }
 
