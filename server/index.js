@@ -36,6 +36,32 @@ const trialProduct = {
 const trialCaptureSchedulerMs = Number(process.env.TRIAL_CAPTURE_SCHEDULER_MS || 5 * 60 * 1000);
 let isCaptureSchedulerRunning = false;
 
+const getOptionalEnvMetadata = (name) => {
+  const value = process.env[name];
+  return typeof value === 'string' ? value.trim() : '';
+};
+
+const getParcelcraftProductMetadata = () => {
+  const metadata = {
+    customs_description: getOptionalEnvMetadata('PARCELCRAFT_CUSTOMS_DESCRIPTION') || 'Facial serum',
+    origin_country: getOptionalEnvMetadata('PARCELCRAFT_ORIGIN_COUNTRY') || 'US',
+  };
+  const productWeight = getOptionalEnvMetadata('PARCELCRAFT_PRODUCT_WEIGHT');
+  const productWeightUnit = getOptionalEnvMetadata('PARCELCRAFT_PRODUCT_WEIGHT_UNIT') || 'ounce';
+  const tariffCode = getOptionalEnvMetadata('PARCELCRAFT_TARIFF_CODE');
+
+  if (productWeight) {
+    metadata.weight = productWeight;
+    metadata.weight_unit = productWeightUnit;
+  }
+
+  if (tariffCode) {
+    metadata.tariff_code = tariffCode;
+  }
+
+  return metadata;
+};
+
 const prefixRoute = (pattern) => {
   if (!pattern.startsWith('/')) {
     throw new Error(`Route pattern must start with '/': ${pattern}`);
@@ -87,6 +113,7 @@ const getTrialMetadata = () => ({
   trial: 'true',
   productId: trialProduct.id,
   captureDelayDays: String(trialProduct.captureDelayDays),
+  ship_status: 'unshipped',
 });
 
 const buildReturnUrl = (req) => {
@@ -405,6 +432,34 @@ const getPaymentIntentId = (paymentIntent) => (
   paymentIntent && typeof paymentIntent === 'object' ? paymentIntent.id : paymentIntent
 );
 
+const updatePaymentIntentShipStatus = async (stripeClient, paymentIntent, shipStatus, idempotencyKey) => {
+  const paymentIntentId = getPaymentIntentId(paymentIntent);
+
+  if (!paymentIntentId) {
+    return null;
+  }
+
+  const currentMetadata = paymentIntent && typeof paymentIntent === 'object' && paymentIntent.metadata
+    ? paymentIntent.metadata
+    : {};
+
+  if (currentMetadata.ship_status === shipStatus) {
+    return paymentIntent;
+  }
+
+  try {
+    return await stripeClient.paymentIntents.update(paymentIntentId, {
+      metadata: {
+        ...currentMetadata,
+        ship_status: shipStatus,
+      },
+    }, idempotencyKey ? { idempotencyKey } : undefined);
+  } catch (error) {
+    console.error(`Failed to update PaymentIntent ${paymentIntentId} ship_status metadata:`, error);
+    return null;
+  }
+};
+
 const addDays = (date, days) => new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
 
 const getSessionCreatedAt = (session) => {
@@ -577,6 +632,13 @@ const handleStripeWebhookEvent = async (stripeClient, event) => {
   }
 
   if (event.type === 'payment_intent.canceled') {
+    await updatePaymentIntentShipStatus(
+      stripeClient,
+      event.data.object,
+      'canceled',
+      `parcelcraft-canceled-${event.data.object?.id || event.id}`,
+    );
+
     await updateTrialOrderByPaymentIntent(event.data.object, (order) => ({
       status: order.status === 'returned' ? 'returned' : 'canceled',
       canceledAt: new Date().toISOString(),
@@ -944,6 +1006,13 @@ app.post(prefixRoute('/trial-orders/:orderId/return'), async (req, res) => {
     }
 
     if (paymentIntent.status === 'requires_capture') {
+      await updatePaymentIntentShipStatus(
+        stripeClient,
+        paymentIntent,
+        'canceled',
+        `trial-return-ship-status-${order.paymentIntentId}`,
+      );
+
       await stripeClient.paymentIntents.cancel(order.paymentIntentId, {}, {
         idempotencyKey: `trial-return-${order.paymentIntentId}`,
       });
@@ -1003,11 +1072,13 @@ app.post(createCheckoutSessionRoutes, async (req, res) => {
   }
 
   const trialMetadata = getTrialMetadata();
+  const productMetadata = getParcelcraftProductMetadata();
 
   try {
     const session = await stripeClient.checkout.sessions.create({
       ui_mode: 'custom',
       mode: 'payment',
+      customer_creation: 'always',
       payment_method_types: ['card'],
       line_items: [
         {
@@ -1015,6 +1086,7 @@ app.post(createCheckoutSessionRoutes, async (req, res) => {
             currency: trialProduct.currency,
             product_data: {
               name: trialProduct.name,
+              metadata: productMetadata,
             },
             unit_amount: trialProduct.amount,
           },
@@ -1023,6 +1095,9 @@ app.post(createCheckoutSessionRoutes, async (req, res) => {
       ],
       shipping_address_collection: {
         allowed_countries: ['US'],
+      },
+      phone_number_collection: {
+        enabled: true,
       },
       return_url: buildReturnUrl(req),
       metadata: trialMetadata,
