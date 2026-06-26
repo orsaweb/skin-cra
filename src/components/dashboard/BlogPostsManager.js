@@ -727,12 +727,6 @@ function BlogPostsManager({ authHeader, onUnauthorized }) {
             <div className="dashboard__blog-preview">
               <h3>Live Preview</h3>
               <div className="blog-presale-page dashboard__blog-preview-frame">
-                <div className="spq-header">
-                  <span className="spq-logo">
-                    <span className="spq-logo__icon">{draft.headerIcon || 'S'}</span>
-                    <span className="spq-logo__text">{draft.headerBrand || 'Skin Care Daily'}</span>
-                  </span>
-                </div>
                 <article
                   ref={previewArticleRef}
                   className="spq-article dashboard__blog-editable-preview"
