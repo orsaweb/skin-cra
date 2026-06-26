@@ -29,6 +29,19 @@ const createDraftFromPost = (post) => ({
   html: post?.html || createEmptyHtml(post?.title || 'New Blog Post'),
 });
 
+const getLogoTextParts = (brand) => {
+  const words = String(brand || 'Skin Care Daily').trim().split(/\s+/).filter(Boolean);
+
+  if (words.length <= 1) {
+    return { primary: words[0] || 'Skin Care Daily', secondary: '' };
+  }
+
+  return {
+    primary: words.slice(0, -1).join(' '),
+    secondary: words[words.length - 1],
+  };
+};
+
 const getBlogUrl = (slug) => `/blog/${sanitizeSlug(slug)}`;
 
 const getEditableItems = (html) => {
@@ -88,6 +101,10 @@ function BlogPostsManager({ authHeader, onUnauthorized }) {
   ), [posts, selectedPostId]);
 
   const editableItems = useMemo(() => getEditableItems(draft?.html || ''), [draft?.html]);
+  const logoText = useMemo(
+    () => getLogoTextParts(draft?.headerBrand || 'Skin Care Daily'),
+    [draft?.headerBrand],
+  );
 
   const isDirty = useMemo(() => {
     if (!draft || !selectedPost) {
@@ -730,7 +747,12 @@ function BlogPostsManager({ authHeader, onUnauthorized }) {
                 <div className="spq-header">
                   <span className="spq-logo">
                     <span className="spq-logo__icon">{draft.headerIcon || 'S'}</span>
-                    <span className="spq-logo__text">{draft.headerBrand || 'Skin Care Daily'}</span>
+                    <span className="spq-logo__text">
+                      <span className="spq-logo__text-primary">{logoText.primary}</span>
+                      {logoText.secondary ? (
+                        <span className="spq-logo__text-secondary">{logoText.secondary}</span>
+                      ) : null}
+                    </span>
                   </span>
                 </div>
                 <article

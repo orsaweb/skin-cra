@@ -7,6 +7,19 @@ const DEFAULT_HOME_URL = 'https://5in1facialserum.com/';
 const DEFAULT_BRAND = 'Skin Care Daily';
 const DEFAULT_ICON = 'S';
 
+const getLogoTextParts = (brand) => {
+  const words = String(brand || DEFAULT_BRAND).trim().split(/\s+/).filter(Boolean);
+
+  if (words.length <= 1) {
+    return { primary: words[0] || DEFAULT_BRAND, secondary: '' };
+  }
+
+  return {
+    primary: words.slice(0, -1).join(' '),
+    secondary: words[words.length - 1],
+  };
+};
+
 const sanitizeSlug = (value) => {
   const slug = String(value || '')
     .trim()
@@ -110,6 +123,7 @@ function Blog5in1SerumPage({ slug }) {
 
   const headerBrand = post?.headerBrand || DEFAULT_BRAND;
   const headerIcon = post?.headerIcon || DEFAULT_ICON;
+  const logoText = getLogoTextParts(headerBrand);
 
   return (
     <div className="blog-presale-page">
@@ -120,7 +134,12 @@ function Blog5in1SerumPage({ slug }) {
       <div className="spq-header">
         <a className="spq-logo" href={DEFAULT_HOME_URL} aria-label={`${headerBrand} home`}>
           <span className="spq-logo__icon">{headerIcon}</span>
-          <span className="spq-logo__text">{headerBrand}</span>
+          <span className="spq-logo__text">
+            <span className="spq-logo__text-primary">{logoText.primary}</span>
+            {logoText.secondary ? (
+              <span className="spq-logo__text-secondary">{logoText.secondary}</span>
+            ) : null}
+          </span>
         </a>
       </div>
 

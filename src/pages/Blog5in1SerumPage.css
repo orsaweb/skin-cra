@@ -28,43 +28,64 @@
 }
 
 .spq-header {
-  height: 65px;
+  height: 48px;
   display: flex;
   align-items: center;
-  padding: 0 32px;
-  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
-  background: #fff;
+  padding: 0 30px;
+  border-bottom: none;
+  background: #151515;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .spq-logo {
   display: inline-flex;
   align-items: center;
-  gap: 0.65rem;
-  color: #111827 !important;
+  gap: 0.5rem;
+  color: #fff !important;
   text-decoration: none;
 }
 
 .spq-logo__icon {
-  display: inline-grid;
-  width: 40px;
-  height: 40px;
+  display: none;
+  width: 30px;
+  height: 30px;
   place-items: center;
-  border-radius: 8px;
-  background: #111827;
-  color: #fff;
-  font-family: Roboto, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
-  font-size: 24px;
+  border-radius: 6px;
+  background: #fff;
+  color: #151515;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 20px;
   font-weight: 900;
   line-height: 1;
 }
 
 .spq-logo__text {
-  display: block;
-  color: #111827;
-  font-family: Roboto, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  color: #fff;
+  white-space: nowrap;
+}
+
+.spq-logo__text-primary {
+  display: inline-block;
+  color: #fff;
+  font-family: Georgia, 'Times New Roman', serif;
   font-size: 28px;
-  font-weight: 900;
+  font-weight: 800;
+  letter-spacing: 0;
   line-height: 1;
+}
+
+.spq-logo__text-secondary {
+  display: inline-block;
+  color: #fff;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1;
+  text-transform: uppercase;
 }
 
 .spq-article {
@@ -233,7 +254,7 @@
 
 @media (max-width: 768px) {
   .spq-header {
-    padding: 0 16px;
+    padding: 0 15px;
   }
 
   .spq-template {
@@ -269,8 +290,18 @@
 }
 
 @media (max-width: 500px) {
-  .spq-logo__text {
-    font-size: 22px;
+  .spq-logo__icon {
+    width: 28px;
+    height: 28px;
+    font-size: 19px;
+  }
+
+  .spq-logo__text-primary {
+    font-size: 26px;
+  }
+
+  .spq-logo__text-secondary {
+    font-size: 15px;
   }
 
   .spq-template .spq-title {
