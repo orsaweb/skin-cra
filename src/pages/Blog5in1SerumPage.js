@@ -3,6 +3,9 @@ import './Blog5in1SerumPage.css';
 
 const BLOG_POST_ENDPOINT = '/api/blog-posts';
 const BLOG_FALLBACK_ENDPOINT = '/blog-posts.json';
+const DEFAULT_HOME_URL = 'https://5in1facialserum.com/';
+const DEFAULT_BRAND = 'Skin Care Daily';
+const DEFAULT_ICON = 'S';
 
 const sanitizeSlug = (value) => {
   const slug = String(value || '')
@@ -105,11 +108,21 @@ function Blog5in1SerumPage({ slug }) {
     };
   }, [post]);
 
+  const headerBrand = post?.headerBrand || DEFAULT_BRAND;
+  const headerIcon = post?.headerIcon || DEFAULT_ICON;
+
   return (
     <div className="blog-presale-page">
       <a className="spq-skip" href="#main-content">
         Skip to main content
       </a>
+
+      <div className="spq-header">
+        <a className="spq-logo" href={DEFAULT_HOME_URL} aria-label={`${headerBrand} home`}>
+          <span className="spq-logo__icon">{headerIcon}</span>
+          <span className="spq-logo__text">{headerBrand}</span>
+        </a>
+      </div>
 
       <main id="main-content">
         {status.state === 'loading' ? (
